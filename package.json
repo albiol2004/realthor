@@ -2,14 +2,15 @@
   "name": "kairo",
   "version": "0.0.1",
   "description": "Real Estate OS",
-  "dependencies": {
-    "next": "^16.0.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check"
   },
-  "scripts": {},
   "devDependencies": {
-    "@types/react": "^19.2.2",
-    "typescript": "^5.9.3"
+    "turbo": "^2.6.0"
   }
 }

@@ -1,0 +1,26 @@
+import { router } from '@/lib/trpc/server'
+import { authRouter } from './auth'
+
+/**
+ * Main tRPC Router
+ *
+ * Combines all feature routers into one app router
+ *
+ * Phase 1: Auth router (placeholder)
+ * Phase 2: Add contacts, properties, deals, activities
+ * Phase 3: Add documents
+ * Phase 4: Add messaging
+ * Phase 5: Add AI and search
+ */
+export const appRouter = router({
+  auth: authRouter,
+  // Phase 2+: Add more routers
+  // contacts: contactsRouter,
+  // properties: propertiesRouter,
+  // deals: dealsRouter,
+  // messaging: messagingRouter,
+  // search: searchRouter,
+  // ai: aiRouter,
+})
+
+export type AppRouter = typeof appRouter

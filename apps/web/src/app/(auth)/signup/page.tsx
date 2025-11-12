@@ -11,15 +11,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { createClient } from '@/lib/supabase/client'
 
-/**
- * User type selection
- */
+const supabase = createClient()
+
 type UserType = 'agent' | 'company'
 
-/**
- * Agent signup schema
- */
 const agentSignupSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -29,9 +26,6 @@ const agentSignupSchema = z.object({
   country: z.string().optional(),
 })
 
-/**
- * Company signup schema
- */
 const companySignupSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -44,20 +38,16 @@ const companySignupSchema = z.object({
 type AgentSignupFormData = z.infer<typeof agentSignupSchema>
 type CompanySignupFormData = z.infer<typeof companySignupSchema>
 
-/**
- * Signup Page
- *
- * Allows users to sign up as either an agent or a company
- */
 export default function SignupPage() {
   const router = useRouter()
   const [userType, setUserType] = useState<UserType | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     reset,
   } = useForm<AgentSignupFormData | CompanySignupFormData>({
     resolver: zodResolver(
@@ -65,32 +55,36 @@ export default function SignupPage() {
     ),
   })
 
-  const signUpAgentMutation = trpc.auth.signUpAgent.useMutation({
-    onSuccess: () => {
-      router.push('/dashboard')
-      router.refresh()
-    },
-    onError: (error: { message: string }) => {
-      setError(error.message)
-    },
-  })
-
-  const signUpCompanyMutation = trpc.auth.signUpCompany.useMutation({
-    onSuccess: () => {
-      router.push('/dashboard')
-      router.refresh()
-    },
-    onError: (error: { message: string }) => {
-      setError(error.message)
-    },
-  })
+  const signUpAgentMutation = trpc.auth.signUpAgent.useMutation()
+  const signUpCompanyMutation = trpc.auth.signUpCompany.useMutation()
 
   const onSubmit = async (data: AgentSignupFormData | CompanySignupFormData) => {
     setError(null)
-    if (userType === 'agent') {
-      await signUpAgentMutation.mutateAsync(data as AgentSignupFormData)
-    } else if (userType === 'company') {
-      await signUpCompanyMutation.mutateAsync(data as CompanySignupFormData)
+    setIsLoading(true)
+
+    try {
+      // 1. Create user in your database via tRPC
+      if (userType === 'agent') {
+        await signUpAgentMutation.mutateAsync(data as AgentSignupFormData)
+      } else if (userType === 'company') {
+        await signUpCompanyMutation.mutateAsync(data as CompanySignupFormData)
+      }
+
+      // 2. Auto-login with Supabase so session exists
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
+
+      if (signInError) throw signInError
+
+      // 3. Redirect to dashboard
+      router.push('/dashboard')
+      router.refresh() // Ensures server components re-render with session
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -103,17 +97,15 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-white dark:bg-black px-4 py-12">
       <div className="w-full max-w-md space-y-8">
-        {/* Logo/Brand */}
+        {/* Logo */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-black dark:text-white">
-            Kairo
-          </h1>
+          <h1 className="text-3xl font-bold text-black dark:text-white">Kairo</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Real Estate CRM
           </p>
         </div>
 
-        {/* Signup Form */}
+        {/* Form Card */}
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-black p-8 shadow-sm">
           <div className="space-y-6">
             <div className="space-y-2 text-center">
@@ -132,219 +124,151 @@ export default function SignupPage() {
             )}
 
             {/* User Type Selection */}
-            {!userType && (
+            {!userType ? (
               <div className="space-y-3">
-                <Label className="text-sm font-medium text-black dark:text-white">
-                  I am a...
-                </Label>
+                <Label className="text-sm font-medium">I am a...</Label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => handleUserTypeChange('agent')}
                     className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-gray-200 dark:border-gray-800 bg-white dark:bg-black p-6 hover:border-black dark:hover:border-white transition-colors"
                   >
-                    <svg
-                      className="h-8 w-8 text-black dark:text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
+                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <span className="text-sm font-medium text-black dark:text-white">
-                      Agent
-                    </span>
+                    <span className="text-sm font-medium">Agent</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleUserTypeChange('company')}
                     className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-gray-200 dark:border-gray-800 bg-white dark:bg-black p-6 hover:border-black dark:hover:border-white transition-colors"
                   >
-                    <svg
-                      className="h-8 w-8 text-black dark:text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
+                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
-                    <span className="text-sm font-medium text-black dark:text-white">
-                      Company
-                    </span>
+                    <span className="text-sm font-medium">Company</span>
                   </button>
                 </div>
               </div>
-            )}
-
-            {/* Signup Form */}
-            {userType && (
+            ) : (
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Signing up as{' '}
-                    <span className="font-medium text-black dark:text-white">
-                      {userType === 'agent' ? 'Agent' : 'Company'}
-                    </span>
+                    Signing up as <span className="font-medium capitalize">{userType}</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => setUserType(null)}
-                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white underline"
+                    className="text-sm underline hover:text-black dark:hover:text-white"
                   >
                     Change
                   </button>
                 </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                  {/* Email */}
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="email"
-                      className="text-sm font-medium text-black dark:text-white"
-                    >
-                      Email
-                    </Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="you@example.com"
-                      className="bg-white dark:bg-black border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
                       {...register('email')}
-                      disabled={isSubmitting}
+                      disabled={isLoading}
                     />
                     {errors.email && (
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        {errors.email.message}
-                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
                     )}
                   </div>
 
+                  {/* Password */}
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="password"
-                      className="text-sm font-medium text-black dark:text-white"
-                    >
-                      Password
-                    </Label>
+                    <Label htmlFor="password">Password</Label>
                     <Input
                       id="password"
                       type="password"
                       placeholder="••••••••"
-                      className="bg-white dark:bg-black border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
                       {...register('password')}
-                      disabled={isSubmitting}
+                      disabled={isLoading}
                     />
                     {errors.password && (
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        {errors.password.message}
-                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
                     )}
                   </div>
 
+                  {/* Name */}
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="name"
-                      className="text-sm font-medium text-black dark:text-white"
-                    >
+                    <Label htmlFor="name">
                       {userType === 'agent' ? 'Full Name' : 'Company Name'}
                     </Label>
                     <Input
                       id="name"
                       type="text"
-                      placeholder={
-                        userType === 'agent'
-                          ? 'John Doe'
-                          : 'Acme Real Estate'
-                      }
-                      className="bg-white dark:bg-black border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                      placeholder={userType === 'agent' ? 'John Doe' : 'Acme Real Estate'}
                       {...register('name')}
-                      disabled={isSubmitting}
+                      disabled={isLoading}
                     />
                     {errors.name && (
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        {errors.name.message}
-                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{errors.name.message}</p>
                     )}
                   </div>
 
+                  {/* Agent: Phone */}
                   {userType === 'agent' && (
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="phone"
-                        className="text-sm font-medium text-gray-600 dark:text-gray-400"
-                      >
+                      <Label htmlFor="phone" className="text-gray-600 dark:text-gray-400">
                         Phone (optional)
                       </Label>
                       <Input
                         id="phone"
                         type="tel"
                         placeholder="+1 (555) 000-0000"
-                        className="bg-white dark:bg-black border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
                         {...register('phone')}
-                        disabled={isSubmitting}
+                        disabled={isLoading}
                       />
                     </div>
                   )}
 
+                  {/* Company: Point of Contact */}
                   {userType === 'company' && (
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="pointOfContact"
-                        className="text-sm font-medium text-gray-600 dark:text-gray-400"
-                      >
+                      <Label htmlFor="pointOfContact" className="text-gray-600 dark:text-gray-400">
                         Point of Contact (optional)
                       </Label>
                       <Input
                         id="pointOfContact"
                         type="text"
                         placeholder="John Doe"
-                        className="bg-white dark:bg-black border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
                         {...register('pointOfContact')}
-                        disabled={isSubmitting}
+                        disabled={isLoading}
                       />
                     </div>
                   )}
 
+                  {/* City & Country */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="city"
-                        className="text-sm font-medium text-gray-600 dark:text-gray-400"
-                      >
+                      <Label htmlFor="city" className="text-gray-600 dark:text-gray-400">
                         City (optional)
                       </Label>
                       <Input
                         id="city"
                         type="text"
                         placeholder="New York"
-                        className="bg-white dark:bg-black border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
                         {...register('city')}
-                        disabled={isSubmitting}
+                        disabled={isLoading}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="country"
-                        className="text-sm font-medium text-gray-600 dark:text-gray-400"
-                      >
+                      <Label htmlFor="country" className="text-gray-600 dark:text-gray-400">
                         Country (optional)
                       </Label>
                       <Input
                         id="country"
                         type="text"
                         placeholder="USA"
-                        className="bg-white dark:bg-black border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-600"
                         {...register('country')}
-                        disabled={isSubmitting}
+                        disabled={isLoading}
                       />
                     </div>
                   </div>
@@ -352,9 +276,9 @@ export default function SignupPage() {
                   <Button
                     type="submit"
                     className="w-full bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 font-medium"
-                    disabled={isSubmitting}
+                    disabled={isLoading || signUpAgentMutation.isPending || signUpCompanyMutation.isPending}
                   >
-                    {isSubmitting ? 'Creating account...' : 'Create Account'}
+                    {isLoading ? 'Creating account...' : 'Create Account'}
                   </Button>
                 </form>
               </>
@@ -364,10 +288,7 @@ export default function SignupPage() {
               <span className="text-gray-600 dark:text-gray-400">
                 Already have an account?{' '}
               </span>
-              <Link
-                href="/login"
-                className="font-medium text-black dark:text-white hover:underline"
-              >
+              <Link href="/login" className="font-medium underline">
                 Sign in
               </Link>
             </div>

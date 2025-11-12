@@ -5,6 +5,92 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-11-12
+
+### Added - Authentication Implementation
+- **Supabase Authentication:** Complete Supabase Auth integration with JWT-based sessions
+  - Browser client (`lib/supabase/client.ts`) for client-side operations
+  - Server client (`lib/supabase/server.ts`) for Server Components and API routes
+  - Middleware helper (`lib/supabase/middleware.ts`) for session management
+- **Auth Service:** Business logic layer for authentication (`server/services/auth.service.ts`)
+  - `signUpAgent()` - Agent signup with profile creation
+  - `signUpCompany()` - Company signup with profile creation
+  - `signIn()` - Email/password authentication
+  - `signOut()` - Session termination
+  - `getSession()` - Current user session retrieval
+- **tRPC Auth Router:** Type-safe API endpoints (`server/routers/auth.ts`)
+  - `auth.signUpAgent` - Agent registration endpoint
+  - `auth.signUpCompany` - Company registration endpoint
+  - `auth.signIn` - Login endpoint
+  - `auth.signOut` - Logout endpoint
+  - `auth.getSession` - Session retrieval endpoint
+- **RLS Policies:** Row-Level Security for agent and company tables
+  - Agents can view/update their own profile
+  - Agents can view their company info
+  - Agents can view other agents in their company
+  - Companies can view/update their profile
+  - Companies can view and manage their agents
+  - Migration file: `supabase/migrations/20250112_rls_policies.sql`
+- **Authentication UI:** Minimalist black/white design
+  - Login page with email/password form (`app/(auth)/login/page.tsx`)
+  - Signup page with agent/company selection (`app/(auth)/signup/page.tsx`)
+  - Form validation with React Hook Form + Zod
+  - Error handling and loading states
+  - Dark mode support
+- **Protected Routes:** Proxy middleware integration
+  - Automatic session refresh
+  - Redirect to /login for unauthenticated users
+  - Redirect to /dashboard for authenticated users on auth pages
+- **tRPC Context:** User session in tRPC context (`lib/trpc/context.ts`)
+  - Includes authenticated user from Supabase
+  - Available in all tRPC procedures
+- **tRPC Provider:** React Query integration (`lib/trpc/Provider.tsx`)
+  - Wraps app with tRPC and React Query providers
+  - Configured in root layout
+
+### Changed
+- Updated `proxy.ts` to use Supabase authentication middleware
+- Enhanced tRPC server with protected procedure middleware
+- Updated tRPC context to include user session
+- Auth pages migrated from placeholders to full implementations
+
+### Fixed
+- tRPC client configuration (was missing proper setup)
+- TypeScript errors in auth pages (implicit any types)
+- Build errors from missing tRPC provider
+
+### Database
+- Agent and company tables now protected by RLS policies
+- Indexes added for performance optimization
+- Foreign key relationships properly configured
+
+### Security
+- Row-Level Security enforced on all tables
+- JWT-based authentication with Supabase
+- Secure session management with HTTP-only cookies
+- Password validation (minimum 8 characters)
+- Email validation on signup
+
+### Documentation
+- `supabase/README.md` - Guide for applying RLS policies and migrations
+- Updated project documentation with authentication flow
+
+### Phase Status
+**Phase 1: Foundation** - ✅ Complete
+- ✅ Directory structure established
+- ✅ Next.js + TypeScript + Tailwind configured
+- ✅ tRPC type-safe API framework ready
+- ✅ Adapter interfaces defined
+- ✅ Basic UI components from shadcn/ui
+- ✅ **Authentication fully implemented (login/signup/session management)**
+- ✅ **Protected route middleware with Supabase**
+- ✅ **RLS policies configured**
+- ✅ **Agent and company profile creation**
+- ✅ CI/CD pipeline operational
+- ✅ Production deployment successful
+
+**Ready for Phase 2: Core CRM**
+
 ## [0.1.0] - 2025-11-11
 
 ### Added

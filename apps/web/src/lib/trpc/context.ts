@@ -1,21 +1,23 @@
 import { type FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch'
+import { createClient } from '@/lib/supabase/server'
+import type { User } from '@supabase/supabase-js'
 
 /**
  * tRPC Context
  *
  * Creates context for each tRPC request
- *
- * Phase 1: Basic context with request info
- * Phase 2+: Will include user session from Supabase Auth
+ * Includes authenticated user information from Supabase
  */
 export async function createContext(opts: FetchCreateContextFnOptions) {
-  // TODO Phase 1: Add Supabase session
-  // const supabase = createServerClient()
-  // const { data: { session } } = await supabase.auth.getSession()
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   return {
     req: opts.req,
-    // user: session?.user ?? null,
+    user: user ?? null,
+    supabase,
   }
 }
 

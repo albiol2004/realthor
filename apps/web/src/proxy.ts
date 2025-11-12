@@ -1,26 +1,17 @@
-import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
 /**
  * Proxy runs before every request (Next.js 16+ convention)
  *
- * Phase 1: Basic setup (current) - Placeholder for auth
- * Phase 2: Will add Supabase auth check
- *
- * NOTE: Migrated from middleware.ts to proxy.ts (Next.js 16 convention).
- * The proxy pattern provides a network boundary in front of the app.
- *
- * This proxy will:
- * - Check if user is authenticated (when auth is implemented)
- * - Redirect to /login if not authenticated
- * - Allow access to public routes (auth pages, landing page)
+ * This proxy handles:
+ * - Supabase session refresh and cookie management
+ * - Authentication checks for protected routes
+ * - Redirects to /login for unauthenticated users on protected routes
+ * - Redirects to /dashboard for authenticated users on auth pages
  */
-export function proxy(request: NextRequest) {
-  // For now, allow all requests through
-  // We'll add Supabase authentication logic here in Phase 1
-  // See: apps/web/src/lib/supabase/middleware.ts for Supabase-specific helpers
-
-  return NextResponse.next()
+export async function proxy(request: NextRequest) {
+  return await updateSession(request)
 }
 
 /**

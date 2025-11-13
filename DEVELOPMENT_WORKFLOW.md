@@ -51,6 +51,7 @@ nano apps/web/.env
 ```
 
 **Required Variables:**
+
 ```bash
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -63,7 +64,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJxxx...
 ```
 
 **Where to find Supabase credentials:**
-1. Go to https://app.supabase.com/project/your-project/settings/api
+
+1. Go to <https://app.supabase.com/project/your-project/settings/api>
 2. Copy Project URL → `NEXT_PUBLIC_SUPABASE_URL`
 3. Copy anon public key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 4. Copy service_role secret key → `SUPABASE_SERVICE_ROLE_KEY` (⚠️ NEVER commit this!)
@@ -91,7 +93,7 @@ pnpm dev
 
 ### Step 6: Verify Setup
 
-✅ Visit http://localhost:3000
+✅ Visit <http://localhost:3000>
 ✅ Sign up with a test email
 ✅ Check email verification works
 ✅ Login successfully
@@ -224,6 +226,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 **Commit Message Format:**
+
 ```
 type: short description
 
@@ -359,8 +362,9 @@ Before merging `develop` → `main`:
 ### Automatic Deployments (Vercel)
 
 Vercel automatically deploys:
-- **Production:** `main` branch → https://kairo.vercel.app
-- **Preview:** `develop` branch → https://kairo-git-develop.vercel.app
+
+- **Production:** `main` branch → <https://kairo.vercel.app>
+- **Preview:** `develop` branch → <https://kairo-git-develop.vercel.app>
 - **Feature:** Any PR → unique preview URL
 
 ### Manual Deployment (if needed)
@@ -378,13 +382,14 @@ vercel --prod
 
 ### Environment Variables on Vercel
 
-1. Go to https://vercel.com/yourname/kairo/settings/environment-variables
+1. Go to <https://vercel.com/yourname/kairo/settings/environment-variables>
 2. Add variables for:
    - `Production` (main branch)
    - `Preview` (develop branch)
    - `Development` (feature branches)
 
 **Required Variables:**
+
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -619,7 +624,7 @@ git push origin main  # Vercel auto-deploys
 
 ## Best Practices
 
-### ✅ DO:
+### ✅ DO
 
 - Always work in feature branches
 - Commit often with clear messages
@@ -629,7 +634,7 @@ git push origin main  # Vercel auto-deploys
 - Keep commits focused and atomic
 - Review your own code before pushing
 
-### ❌ DON'T:
+### ❌ DON'T
 
 - Never commit directly to `main`
 - Never commit `.env` files

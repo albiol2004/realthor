@@ -1,5 +1,83 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { SubscriptionRow } from '@/types/subscription'
+
+/**
+ * Public paths that don't require subscription check
+ */
+const PUBLIC_PATHS = [
+  '/login',
+  '/signup',
+  '/subscribe',
+  '/verify-email',
+  '/auth/callback',
+  '/',
+]
+
+/**
+ * API paths that should bypass subscription check
+ */
+const API_PATHS = [
+  '/api',
+  '/_next',
+  '/favicon.ico',
+]
+
+/**
+ * Check if a path is public (no subscription check needed)
+ */
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path))
+}
+
+/**
+ * Check if a path is an API path
+ */
+function isApiPath(pathname: string): boolean {
+  return API_PATHS.some(path => pathname.startsWith(path))
+}
+
+/**
+ * Check if user has active subscription access
+ */
+async function hasActiveAccess(supabase: ReturnType<typeof createServerClient>, userId: string): Promise<boolean> {
+  try {
+    const { data: subscription, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (error || !subscription) {
+      return false
+    }
+
+    const sub = subscription as SubscriptionRow
+    const now = new Date()
+
+    // Check trial access
+    if (sub.status === 'trial') {
+      const trialEnd = new Date(sub.trial_ends_at)
+      return now < trialEnd
+    }
+
+    // Check active subscription
+    if (sub.status === 'active') {
+      if (!sub.subscription_end_date) {
+        return true // Active with no end date
+      }
+      const subEnd = new Date(sub.subscription_end_date)
+      return now < subEnd
+    }
+
+    // Expired or cancelled
+    return false
+  } catch (error) {
+    console.error('Error checking subscription:', error)
+    // On error, allow access (fail open to prevent lockout)
+    return true
+  }
+}
 
 /**
  * Creates a Supabase client for middleware usage
@@ -41,24 +119,41 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Check if route is protected (dashboard routes)
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard')
-  const isAuthRoute = ['/login', '/signup'].includes(request.nextUrl.pathname)
+  const pathname = request.nextUrl.pathname
 
-  // Redirect logic
-  if (!user && isProtectedRoute) {
+  // Skip subscription check for public paths and API routes
+  if (isPublicPath(pathname) || isApiPath(pathname)) {
+    // Still handle auth redirects for login/signup
+    const isAuthRoute = ['/login', '/signup'].includes(pathname)
+
+    if (user && isAuthRoute) {
+      // User is authenticated, redirect away from auth pages to dashboard
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    return supabaseResponse
+  }
+
+  // All other routes require authentication
+  if (!user) {
     // User is not authenticated, redirect to login
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthRoute) {
-    // User is authenticated, redirect away from auth pages to dashboard
+  // User is authenticated - check subscription status
+  const hasAccess = await hasActiveAccess(supabase, user.id)
+
+  if (!hasAccess) {
+    // No active subscription, redirect to subscribe page
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/subscribe'
     return NextResponse.redirect(url)
   }
 
+  // User has active access, allow request
   return supabaseResponse
 }

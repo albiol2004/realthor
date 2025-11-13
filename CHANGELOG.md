@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-11-13
+
+### Added - Subscription Enforcement Middleware (Phase C)
+
+#### Subscription Access Control
+- **Middleware Enhancement:** Updated proxy middleware to enforce subscription status (`lib/supabase/middleware.ts`)
+  - Checks subscription status for all protected routes
+  - Redirects to /subscribe if trial expired or no active subscription
+  - Public paths: /login, /signup, /subscribe, /verify-email, /auth/callback, /
+  - API paths bypassed: /api/*, /_next/*, /favicon.ico
+  - Fail-open strategy: On error, allow access to prevent lockout
+
+- **Subscribe Page:** Beautiful pricing page (`app/(auth)/subscribe/page.tsx`)
+  - Monthly ($29/mo) and Yearly ($290/yr, 17% savings) plans
+  - Billing cycle toggle with visual feedback
+  - Feature list: Unlimited contacts, AI prioritization, unified messaging, etc.
+  - "Subscribe Now" button (Phase D: Stripe integration)
+  - Purple accent for subscription UI
+  - Trust badges and security messaging
+  - Responsive design with dark mode support
+
+- **Settings Hub:** Improved settings page (`app/(dashboard)/settings/page.tsx`)
+  - Card-based layout for different settings sections
+  - Profile, Subscription, Notifications, Integrations, Security
+  - "Manage" button for Subscription (available)
+  - "Coming Soon" badges for other sections
+  - Consistent black/white styling
+
+#### Access Control Flow
+1. User authenticated → Check subscription status
+2. Trial active (< 7 days) → Allow access
+3. Paid subscription active → Allow access
+4. Trial expired or no subscription → Redirect to /subscribe
+5. User can only access /subscribe, /login, /signup when expired
+
+### Changed
+- Middleware now enforces subscription-based access control
+- All dashboard routes require active subscription or trial
+- Settings page redesigned with card layout
+
+### Technical Details
+- Type-safe subscription checking in middleware
+- Database query optimization for subscription lookups
+- Error handling with fail-open strategy
+- Build: ✅ Type check passed (7.3s), ✅ Build successful (24s)
+- 20 routes compiled (added /subscribe)
+
+### Phase Status
+**Phase 1: Foundation** - ✅ Complete
+- ✅ Subscription system with 7-day trials
+- ✅ Subscription enforcement via middleware
+- ✅ Pricing page ready for Stripe
+- ✅ Access control fully functional
+
+**Next: Phase D** - Stripe Payment Integration
+- Stripe checkout flow
+- Webhook handling for payment events
+- Customer portal for subscription management
+- Payment success/failure pages
+
 ## [0.4.0] - 2025-11-13
 
 ### Added - Subscription System & Navigation Sidebars (Phase A + B)

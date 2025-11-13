@@ -1,40 +1,93 @@
+import Link from 'next/link'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+
 /**
  * Settings Page
  *
- * User settings, preferences, etc.
- * Phase 1: Basic structure
+ * Main settings hub with links to different settings sections
  */
 export default function SettingsPage() {
+  const settingsSections = [
+    {
+      title: 'Profile',
+      description: 'Manage your account information and preferences',
+      href: '/settings/profile',
+      available: false,
+    },
+    {
+      title: 'Subscription',
+      description: 'Manage your billing and subscription plan',
+      href: '/settings/subscription',
+      available: true,
+    },
+    {
+      title: 'Notifications',
+      description: 'Configure email and push notifications',
+      href: '/settings/notifications',
+      available: false,
+    },
+    {
+      title: 'Integrations',
+      description: 'Connect third-party services and APIs',
+      href: '/settings/integrations',
+      available: false,
+    },
+    {
+      title: 'Security',
+      description: 'Password, two-factor authentication, and security settings',
+      href: '/settings/security',
+      available: false,
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-3xl font-bold tracking-tight text-black dark:text-white">
+          Settings
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
           Manage your account settings and preferences
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold mb-4">Profile</h2>
-          <p className="text-sm text-muted-foreground">
-            Profile settings will be implemented in Phase 1
-          </p>
-        </div>
-
-        <div className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold mb-4">Integrations</h2>
-          <p className="text-sm text-muted-foreground">
-            Email, WhatsApp, and other integrations (Phase 4)
-          </p>
-        </div>
-
-        <div className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold mb-4">Billing</h2>
-          <p className="text-sm text-muted-foreground">
-            Subscription and billing settings (Future)
-          </p>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {settingsSections.map((section) => (
+          <Card
+            key={section.href}
+            className="border-gray-200 dark:border-gray-800 bg-white dark:bg-black"
+          >
+            <CardHeader>
+              <CardTitle className="text-black dark:text-white">
+                {section.title}
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
+                {section.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {section.available ? (
+                <Link href={section.href}>
+                  <Button
+                    variant="outline"
+                    className="w-full border-gray-300 dark:border-gray-700 text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900"
+                  >
+                    Manage
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled
+                  className="w-full border-gray-300 dark:border-gray-700"
+                >
+                  Coming Soon
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   )

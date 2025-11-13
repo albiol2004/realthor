@@ -20,24 +20,40 @@
    https://your-production-domain.com/auth/callback
    ```
 
-### Step 2: Configure Email Templates (Optional)
+### Step 2: Configure Email Templates (IMPORTANT)
 
 1. Go to **Authentication > Email Templates**:
    ```
    https://cmtbboloytcbwdaylngv.supabase.co/project/cmtbboloytcbwdaylngv/auth/templates
    ```
 
-2. Customize the **Confirm signup** template to match Kairo branding:
+2. Apply the Kairo-branded email templates:
 
-   ```html
-   <h2>Welcome to Kairo!</h2>
-   <p>Thanks for signing up. Click the link below to verify your email address:</p>
-   <p><a href="{{ .ConfirmationURL }}">Verify Email Address</a></p>
-   <p>Or copy this link into your browser:</p>
-   <p>{{ .ConfirmationURL }}</p>
-   <p>This link expires in 24 hours.</p>
-   <p>If you didn't create an account with Kairo, you can safely ignore this email.</p>
-   ```
+   **📧 Confirm Signup Template:**
+   - Click on "Confirm signup" template
+   - Copy the entire content from `supabase/email-templates/confirm-signup.html`
+   - Paste into the template editor
+   - Click **Save**
+
+   **🔑 Reset Password Template:**
+   - Click on "Reset Password" template
+   - Copy the entire content from `supabase/email-templates/reset-password.html`
+   - Paste into the template editor
+   - Click **Save**
+
+   **📨 Invite User Template:**
+   - Click on "Invite user" template
+   - Copy the entire content from `supabase/email-templates/invite.html`
+   - Paste into the template editor
+   - Click **Save**
+
+   **🎨 Template Features:**
+   - ✅ Minimalist black/white design matching Kairo branding
+   - ✅ Mobile responsive
+   - ✅ Clear call-to-action buttons
+   - ✅ Professional typography
+   - ✅ Fallback links for email clients that block buttons
+   - ✅ Security warnings where appropriate
 
 ### Step 3: Email Provider Settings
 

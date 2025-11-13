@@ -1,0 +1,23 @@
+KAIRO
+Real Estate CRM
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WELCOME TO KAIRO!
+
+Thank you for signing up. You're one step away from accessing your real estate command center.
+
+Click the link below to verify your email address and activate your account:
+
+{{ .ConfirmationURL }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  This link expires in 24 hours.
+
+If you didn't create a Kairo account, you can safely ignore this email.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+© 2025 Kairo. All rights reserved.
+The operating system for real estate professionals.

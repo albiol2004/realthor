@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email - Kairo</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background-color: #ffffff;
+      color: #000000;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .logo {
+      font-size: 32px;
+      font-weight: bold;
+      color: #000000;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .tagline {
+      font-size: 14px;
+      color: #666666;
+      margin: 8px 0 0 0;
+    }
+    .content {
+      background-color: #ffffff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 40px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #000000;
+      margin: 0 0 16px 0;
+    }
+    .text {
+      font-size: 16px;
+      line-height: 24px;
+      color: #333333;
+      margin: 0 0 24px 0;
+    }
+    .button-container {
+      text-align: center;
+      margin: 32px 0;
+    }
+    .button {
+      display: inline-block;
+      background-color: #000000;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+    .button:hover {
+      background-color: #333333;
+    }
+    .divider {
+      border: 0;
+      border-top: 1px solid #e5e5e5;
+      margin: 32px 0;
+    }
+    .secondary-text {
+      font-size: 14px;
+      line-height: 20px;
+      color: #666666;
+      margin: 16px 0;
+    }
+    .link {
+      color: #000000;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e5e5;
+    }
+    .footer-text {
+      font-size: 12px;
+      color: #999999;
+      margin: 8px 0;
+    }
+    .box {
+      background-color: #f9f9f9;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      padding: 16px;
+      margin: 24px 0;
+    }
+    .box-text {
+      font-size: 14px;
+      color: #666666;
+      margin: 0;
+      line-height: 20px;
+    }
+    @media only screen and (max-width: 600px) {
+      .container {
+        padding: 20px 10px;
+      }
+      .content {
+        padding: 24px;
+      }
+      .title {
+        font-size: 20px;
+      }
+      .button {
+        padding: 12px 24px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1 class="logo">Kairo</h1>
+      <p class="tagline">Real Estate CRM</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <h2 class="title">Welcome to Kairo!</h2>
+
+      <p class="text">
+        Thank you for signing up. You're one step away from accessing your real estate command center.
+      </p>
+
+      <p class="text">
+        Click the button below to verify your email address and activate your account:
+      </p>
+
+      <!-- CTA Button -->
+      <div class="button-container">
+        <a href="{{ .ConfirmationURL }}" class="button">Verify Email Address</a>
+      </div>
+
+      <!-- Alternative Link -->
+      <hr class="divider">
+
+      <p class="secondary-text">
+        If the button doesn't work, copy and paste this link into your browser:
+      </p>
+
+      <div class="box">
+        <p class="box-text">
+          <a href="{{ .ConfirmationURL }}" class="link">{{ .ConfirmationURL }}</a>
+        </p>
+      </div>
+
+      <p class="secondary-text">
+        <strong>This link expires in 24 hours.</strong>
+      </p>
+
+      <hr class="divider">
+
+      <p class="secondary-text">
+        If you didn't create a Kairo account, you can safely ignore this email.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p class="footer-text">
+        © 2025 Kairo. All rights reserved.
+      </p>
+      <p class="footer-text">
+        The operating system for real estate professionals.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

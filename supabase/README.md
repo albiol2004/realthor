@@ -6,8 +6,10 @@
 
 1. Go to your Supabase project dashboard
 2. Navigate to **SQL Editor**
-3. Copy the contents of `migrations/20250112_rls_policies.sql`
-4. Paste and run the SQL query
+3. Apply migrations in order:
+   - First: `migrations/20250112_rls_policies.sql` (if not already applied)
+   - Then: `migrations/20250113_remove_unique_constraints.sql` (fixes signup issue)
+4. Copy and paste each migration file's contents and run
 
 ### Option 2: Supabase CLI (Recommended for Production)
 

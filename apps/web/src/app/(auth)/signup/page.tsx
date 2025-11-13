@@ -70,17 +70,9 @@ export default function SignupPage() {
         await signUpCompanyMutation.mutateAsync(data as CompanySignupFormData)
       }
 
-      // 2. Auto-login with Supabase so session exists
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
-
-      if (signInError) throw signInError
-
-      // 3. Redirect to dashboard
-      router.push('/dashboard')
-      router.refresh() // Ensures server components re-render with session
+      // 2. Redirect to verification page (email confirmation required)
+      // Store email in URL params for the verification page
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
     } catch (err: any) {
       setError(err.message || 'Failed to create account. Please try again.')
     } finally {

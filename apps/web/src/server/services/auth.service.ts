@@ -1,5 +1,23 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { TRPCError } from '@trpc/server'
+
+/**
+ * Create a Supabase client with service role key for admin operations
+ * Used during signup to bypass RLS when creating profiles
+ */
+function createAdminClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
+}
 
 /**
  * User type for authentication
@@ -89,8 +107,9 @@ class AuthService {
       })
     }
 
-    // Create agent profile
-    const { data: agent, error: profileError } = await supabase
+    // Create agent profile using admin client to bypass RLS
+    const adminClient = createAdminClient()
+    const { data: agent, error: profileError } = await adminClient
       .from('agent')
       .insert({
         userID: authData.user.id,
@@ -105,11 +124,12 @@ class AuthService {
 
     if (profileError) {
       // Rollback: Delete the auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      const rollbackClient = createAdminClient()
+      await rollbackClient.auth.admin.deleteUser(authData.user.id)
 
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to create agent profile',
+        message: `Failed to create agent profile: ${profileError.message}`,
       })
     }
 
@@ -166,8 +186,9 @@ class AuthService {
       })
     }
 
-    // Create company profile
-    const { data: company, error: profileError } = await supabase
+    // Create company profile using admin client to bypass RLS
+    const adminClient = createAdminClient()
+    const { data: company, error: profileError } = await adminClient
       .from('company')
       .insert({
         userID: authData.user.id,
@@ -182,11 +203,12 @@ class AuthService {
 
     if (profileError) {
       // Rollback: Delete the auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      const rollbackClient = createAdminClient()
+      await rollbackClient.auth.admin.deleteUser(authData.user.id)
 
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to create company profile',
+        message: `Failed to create company profile: ${profileError.message}`,
       })
     }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { TRPCError } from '@trpc/server'
+import { subscriptionService } from './subscription.service'
 
 /**
  * Create a Supabase client with service role key for admin operations
@@ -133,6 +134,15 @@ class AuthService {
       })
     }
 
+    // Create 7-day trial subscription
+    try {
+      await subscriptionService.createTrialSubscription(authData.user.id)
+    } catch (subscriptionError) {
+      // Log error but don't fail signup - subscription can be created later
+      console.error('Failed to create trial subscription:', subscriptionError)
+      // TODO: Add proper logging/monitoring
+    }
+
     return {
       user: authData.user,
       agent,
@@ -210,6 +220,15 @@ class AuthService {
         code: 'INTERNAL_SERVER_ERROR',
         message: `Failed to create company profile: ${profileError.message}`,
       })
+    }
+
+    // Create 7-day trial subscription
+    try {
+      await subscriptionService.createTrialSubscription(authData.user.id)
+    } catch (subscriptionError) {
+      // Log error but don't fail signup - subscription can be created later
+      console.error('Failed to create trial subscription:', subscriptionError)
+      // TODO: Add proper logging/monitoring
     }
 
     return {

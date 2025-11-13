@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-11-13
+
+### Added - Subscription System & Navigation Sidebars (Phase A + B)
+
+#### Phase A: Subscription Backend - 7-Day Free Trial System
+- **Database:** New `subscriptions` table with full subscription lifecycle management
+  - Auto-created 7-day trial on user signup
+  - Tracks trial/active/expired/cancelled states
+  - Stripe integration fields (customer_id, subscription_id, plan details)
+  - RLS policies for secure user-only access
+  - Migration: `supabase/migrations/20250113_subscriptions.sql`
+
+- **Type System:** Complete TypeScript definitions (`types/subscription.ts`)
+  - `SubscriptionStatus`, `PlanType`, `Subscription` interface
+  - Helper functions: `hasActiveAccess()`, `getDaysRemaining()`, `isTrialExpired()`
+  - Full type safety from database to UI
+
+- **Repository Layer:** Data access for subscriptions (`server/repositories/subscription.repository.ts`)
+  - CRUD operations with admin client for RLS bypass
+  - Lookup by user ID or Stripe customer ID
+
+- **Service Layer:** Business logic (`server/services/subscription.service.ts`)
+  - Trial creation, status checking, activation, cancellation, renewal
+
+- **API Layer:** tRPC subscription router (`server/routers/subscription.ts`)
+  - Type-safe endpoints: getSubscription, checkStatus, createTrial, etc.
+  - Integrated into main app router
+
+- **Auth Integration:** Trial auto-creation on signup
+  - Both agent and company signups now create 7-day trial automatically
+  - Non-blocking: signup succeeds even if subscription fails
+
+#### Phase B: Navigation Sidebars - Complete UI Navigation
+- **Left Sidebar:** Main navigation (`components/layout/left-sidebar.tsx`)
+  - Dashboard, CRM, Properties, Compliance, Social, Client Portal
+  - Active state highlighting, hover descriptions
+  - Sticky positioning, dark mode compatible
+
+- **Right Sidebar:** User profile & subscription (`components/layout/right-sidebar.tsx`)
+  - User avatar with initials
+  - Real-time subscription status (trial days remaining/active plan/expired)
+  - Navigation: Settings, Subscription, Contact Us
+  - Sign out functionality
+
+- **Layout Update:** Three-column layout (`app/(dashboard)/layout.tsx`)
+  - Left sidebar (256px) + Main content (flex) + Right sidebar (256px)
+  - Responsive scrolling
+
+- **Placeholder Pages:** All MVP sections created
+  - `/crm`, `/properties`, `/compliance`, `/social`, `/client-portal`
+  - `/contact`, `/settings/subscription`
+  - Consistent "Coming Soon" styling
+
+### Changed
+- Dashboard layout: Single column → Three-column with sidebars
+- User navigation: No nav → Full MVP section navigation
+- Types index: Now exports subscription types
+
+### Technical Details
+- Backend: Service-Repository pattern, admin clients for RLS bypass
+- Frontend: React hooks + tRPC for real-time subscription status
+- Styling: Black/white minimalist design throughout
+- Build: ✅ Type check passed, ✅ Build successful (18.6s)
+- 19 routes compiled successfully
+
+### Phase Status
+**Phase 1: Foundation** - ✅ Complete
+- ✅ Authentication + 7-day trial subscription system
+- ✅ Left & right sidebars with full navigation
+- ✅ All MVP placeholder pages
+- ✅ Subscription backend ready for Stripe (Phase C+D)
+
+**Next: Phase C+D** - Subscription Enforcement & Stripe Integration
+
 ## [0.3.0] - 2025-11-13
 
 ### Added - MVP Dashboard Implementation

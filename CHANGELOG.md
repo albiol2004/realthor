@@ -5,6 +5,182 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-11-14
+
+### Added - Stripe Payment Integration (Phase D)
+
+#### Payment Infrastructure
+- **Stripe SDK Integration:** Installed stripe and @stripe/stripe-js packages
+  - Server-side Stripe SDK for backend operations
+  - Client-side Stripe.js for secure checkout
+  - Type-safe payment processing throughout
+
+- **Pricing Configuration:** Centralized pricing plans (`lib/config/pricing.ts`)
+  - Two tiers: Standard and Professional
+  - Three billing cycles: Monthly, Quarterly (3-month), Yearly
+  - Standard: $29/mo, $75/3mo (14% savings), $290/yr (17% savings)
+  - Professional: $49/mo, $129/3mo (12% savings), $490/yr (17% savings)
+  - Helper functions: `getPlansByTier()`, `getPlanByPriceId()`, `formatBillingCycle()`
+
+- **Payment Adapter Pattern:** Swappable payment provider (`lib/adapters/payment/`)
+  - Interface definition with checkout, portal, webhook methods
+  - Stripe implementation: `StripePaymentAdapter`
+  - Service provider integration: `ServiceProvider.payment`
+  - Ready to swap Stripe for other providers (PayPal, Square, etc.)
+
+- **Payment Service Layer:** Business logic (`server/services/payment.service.ts`)
+  - `createCheckoutSession()` - Generate Stripe Checkout URL
+  - `createCustomerPortal()` - Access Stripe Customer Portal
+  - `handleWebhookEvent()` - Process Stripe webhooks
+  - Automatic subscription activation on successful payment
+  - Webhook handlers for all subscription lifecycle events:
+    - checkout.session.completed
+    - customer.subscription.updated
+    - customer.subscription.deleted
+    - invoice.payment_succeeded
+    - invoice.payment_failed
+
+- **API Endpoints:** tRPC payment router (`server/routers/payment.ts`)
+  - `payment.createCheckoutSession` - Start payment flow
+  - `payment.createCustomerPortal` - Manage subscription
+  - Integrated into main app router
+
+- **Stripe Webhook Handler:** Next.js API route (`app/api/webhooks/stripe/route.ts`)
+  - Secure webhook signature verification
+  - Raw body parsing for Stripe verification
+  - Automatic subscription status updates
+
+#### User Interface
+
+- **Enhanced Subscribe Page:** Two-tier pricing display (`app/(auth)/subscribe/page.tsx`)
+  - Side-by-side Standard and Professional plan cards
+  - Billing cycle toggle: Monthly, 3 Months, Yearly
+  - Real-time price updates based on selection
+  - Savings badges (12-17% off)
+  - Feature lists for each tier
+  - "Get Started" buttons redirect to Stripe Checkout
+  - Loading states during checkout session creation
+  - Dark mode compatible, fully responsive
+
+- **Success Page:** Post-payment confirmation (`app/(auth)/subscribe/success/page.tsx`)
+  - Checkout session verification
+  - Success message with next steps
+  - Auto-redirect to dashboard (5 second countdown)
+  - Quick access to subscription management
+  - Welcome message for new subscribers
+
+- **Cancel Page:** Checkout cancellation (`app/(auth)/subscribe/cancel/page.tsx`)
+  - Friendly cancellation message
+  - "Try Again" button to restart checkout
+  - Return to dashboard option
+  - Help contact information
+
+- **Subscription Management:** Full-featured settings page (`app/(dashboard)/settings/subscription/page.tsx`)
+  - Current plan display with tier, price, billing cycle
+  - Subscription status badges (Trial, Active, Expired, Cancelled)
+  - Trial countdown (days remaining)
+  - Subscription dates (start, renewal/end)
+  - "Manage Subscription" button → Opens Stripe Customer Portal
+  - Portal allows: Update payment method, change plan, cancel subscription
+  - "Upgrade to Pro" button for trial/expired users
+  - Billing info section with trust badges
+  - Loading states for portal access
+
+- **Badge Component:** New UI component (`components/ui/badge.tsx`)
+  - Supports outline, default, secondary, destructive variants
+  - Used for subscription status indicators
+  - Consistent with shadcn/ui design system
+
+#### API Protection & Security
+
+- **tRPC Subscription Procedure:** New middleware (`lib/trpc/server.ts`)
+  - `subscribedProcedure` - Requires auth AND active subscription
+  - Checks subscription status on every API call
+  - Prevents cached API access after subscription expiry
+  - Throws FORBIDDEN error if subscription expired
+  - Ready for use in feature routers (CRM, properties, etc.)
+  - Payment/subscription routers use `protectedProcedure` (auth only)
+
+- **Server tRPC Exports:** Convenient import path (`server/trpc.ts`)
+  - Re-exports all tRPC utilities for server-side code
+  - Shorter import: `@/server/trpc` instead of `@/lib/trpc/server`
+
+#### Configuration & Documentation
+
+- **Environment Variables:** Updated `.env.example`
+  - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Client-side Stripe key
+  - `STRIPE_SECRET_KEY` - Server-side Stripe key
+  - `STRIPE_WEBHOOK_SECRET` - Webhook signature verification
+
+- **Pricing Plans:** All 6 plans configured in Stripe
+  - Standard Monthly, Quarterly, Yearly
+  - Professional Monthly, Quarterly, Yearly
+  - Price IDs mapped in `pricing.ts`
+
+### Changed
+- Subscribe page: Single plan → Two-tier pricing with 3 billing cycles
+- Settings subscription page: Placeholder → Full management UI
+- tRPC procedures: Added `subscribedProcedure` for API-level subscription checks
+- Middleware: Now complemented by API-level subscription validation
+
+### Fixed
+- **Subscription Bypass Issue:** Users could access dashboard via API calls even after trial expiration
+  - Root cause: Middleware only checked on page navigation
+  - Solution: Added `subscribedProcedure` to validate subscription on every tRPC call
+  - Impact: Complete subscription enforcement at both middleware and API layers
+
+### Technical Details
+- **Architecture:** Adapter pattern allows swapping Stripe for other payment providers
+- **Type Safety:** End-to-end TypeScript from Stripe events to UI
+- **Security:** Webhook signature verification, secure API routes
+- **Performance:** Efficient database queries for subscription checks
+- **Error Handling:** Fail-open strategy for middleware, explicit errors for API
+- **Testing:** Ready for test mode transactions with Stripe test keys
+
+### Deployment Notes
+
+**Required Environment Variables:**
+```bash
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
+```
+
+**Webhook Setup (After Deployment):**
+1. Deploy application to production
+2. In Stripe Dashboard → Developers → Webhooks
+3. Add endpoint: `https://your-domain.com/api/webhooks/stripe`
+4. Select events:
+   - checkout.session.completed
+   - customer.subscription.updated
+   - customer.subscription.deleted
+   - invoice.payment_succeeded
+   - invoice.payment_failed
+5. Copy webhook signing secret to `STRIPE_WEBHOOK_SECRET`
+
+**Stripe Product Setup:**
+- Products created in Stripe Dashboard (Test mode)
+- Price IDs configured in `pricing.ts`
+- Prebuilt Checkout Page selected for fast, secure payments
+
+### Phase Status
+**Phase 1: Foundation** - ✅ Complete
+- ✅ Authentication with 7-day free trials
+- ✅ Subscription system with database backend
+- ✅ Subscription enforcement at middleware level
+- ✅ **Stripe payment integration (Phase D)**
+- ✅ **Two-tier pricing (Standard & Professional)**
+- ✅ **Stripe Checkout flow**
+- ✅ **Webhook handling for automatic subscription updates**
+- ✅ **Stripe Customer Portal for subscription management**
+- ✅ **API-level subscription validation**
+
+**Next: Phase 2** - Core CRM Features
+- Contacts CRUD with subscribed procedure protection
+- Properties management
+- Deals pipeline
+- All feature endpoints will use `subscribedProcedure`
+
 ## [0.5.0] - 2025-11-13
 
 ### Added - Subscription Enforcement Middleware (Phase C)

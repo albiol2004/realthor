@@ -1,6 +1,7 @@
 import { router } from '@/lib/trpc/server'
 import { authRouter } from './auth'
 import { subscriptionRouter } from './subscription'
+import { paymentRouter } from './payment'
 
 /**
  * Main tRPC Router
@@ -16,6 +17,7 @@ import { subscriptionRouter } from './subscription'
 export const appRouter = router({
   auth: authRouter,
   subscription: subscriptionRouter,
+  payment: paymentRouter,
   // Phase 2+: Add more routers
   // contacts: contactsRouter,
   // properties: propertiesRouter,

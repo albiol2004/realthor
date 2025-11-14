@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pricing Configuration:** Centralized pricing plans (`lib/config/pricing.ts`)
   - Two tiers: Standard and Professional
   - Three billing cycles: Monthly, Quarterly (3-month), Yearly
-  - Standard: $29/mo, $75/3mo (14% savings), $290/yr (17% savings)
-  - Professional: $49/mo, $129/3mo (12% savings), $490/yr (17% savings)
+  - Standard: $99/mo, $270/3mo (9% savings), $999.98/yr (16% savings)
+  - Professional: $199/mo, $540/3mo (10% savings), $1,999/yr (17% savings)
   - Helper functions: `getPlansByTier()`, `getPlanByPriceId()`, `formatBillingCycle()`
 
 - **Payment Adapter Pattern:** Swappable payment provider (`lib/adapters/payment/`)

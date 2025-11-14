@@ -22,6 +22,7 @@ export const paymentRouter = router({
         priceId: input.priceId,
         userId: ctx.user.id,
         userEmail: ctx.user.email!,
+        appUrl: ctx.appUrl,
       })
 
       return session
@@ -33,6 +34,7 @@ export const paymentRouter = router({
   createCustomerPortal: protectedProcedure.mutation(async ({ ctx }) => {
     const portal = await paymentService.createCustomerPortal({
       userId: ctx.user.id,
+      appUrl: ctx.appUrl,
     })
 
     return portal

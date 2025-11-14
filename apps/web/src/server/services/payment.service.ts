@@ -11,10 +11,12 @@ interface CreateCheckoutSessionInput {
   priceId: string
   userId: string
   userEmail: string
+  appUrl: string
 }
 
 interface CreateCustomerPortalInput {
   userId: string
+  appUrl: string
 }
 
 class PaymentService {
@@ -29,15 +31,13 @@ class PaymentService {
    * Create a Stripe Checkout session
    */
   async createCheckoutSession(input: CreateCheckoutSessionInput): Promise<{ url: string }> {
-    const { priceId, userId, userEmail } = input
+    const { priceId, userId, userEmail, appUrl } = input
 
     // Validate the price ID exists in our config
     const plan = getPlanByPriceId(priceId)
     if (!plan) {
       throw new Error(`Invalid price ID: ${priceId}`)
     }
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
     // Create checkout session
     const session = await this.payment.createCheckoutSession({
@@ -60,7 +60,7 @@ class PaymentService {
    * Create a Stripe Customer Portal session
    */
   async createCustomerPortal(input: CreateCustomerPortalInput): Promise<{ url: string }> {
-    const { userId } = input
+    const { userId, appUrl } = input
 
     // Get user's subscription to find Stripe customer ID
     const subscription = await subscriptionRepository.getByUserId(userId)
@@ -72,8 +72,6 @@ class PaymentService {
     if (!subscription.stripeCustomerId) {
       throw new Error('No Stripe customer ID found')
     }
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
     // Create portal session
     const portal = await this.payment.createCustomerPortalSession({

@@ -128,19 +128,8 @@ CREATE POLICY "Agents can delete their own contacts"
     auth.uid() = user_id
   );
 
--- Company admins can view all contacts from their company's agents
-CREATE POLICY "Company admins can view company contacts"
-  ON contacts
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM agent a1
-      JOIN agent a2 ON a1.company = a2.company
-      WHERE a1."userID" = auth.uid()
-        AND a2."userID" = contacts.user_id
-        AND a1.company IS NOT NULL
-    )
-  );
+-- TODO: Add company admin policy later without causing infinite recursion
+-- For now, only agents can see their own contacts
 
 -- RLS for contact_properties junction table
 CREATE POLICY "Users can view their contact-property relationships"

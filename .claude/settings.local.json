@@ -10,7 +10,8 @@
       "Bash(git merge:*)",
       "Bash(git add:*)",
       "Bash(git restore --staged .claude/settings.local.json)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx shadcn@latest add:*)"
     ]
   },
   "outputStyle": "default"

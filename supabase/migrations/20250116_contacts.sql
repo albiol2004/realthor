@@ -42,10 +42,12 @@ CREATE TABLE IF NOT EXISTS contacts (
 );
 
 -- Create contact_properties junction table (many-to-many with roles)
+-- Note: This table will remain unused until the properties feature is implemented
+-- The foreign key constraint to properties table will be added later
 CREATE TABLE IF NOT EXISTS contact_properties (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  property_id uuid NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  property_id uuid NOT NULL, -- Will add FK constraint when properties table exists
   role text NOT NULL, -- owner, buyer, seller, tenant
   created_at timestamptz NOT NULL DEFAULT now(),
 

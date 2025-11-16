@@ -27,7 +27,14 @@ const API_PATHS = [
  * Check if a path is public (no subscription check needed)
  */
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path))
+  return PUBLIC_PATHS.some(path => {
+    // Exact match for root path to avoid matching everything
+    if (path === '/') {
+      return pathname === '/'
+    }
+    // For other paths, allow exact match or startsWith (e.g., /subscribe matches /subscribe/success)
+    return pathname === path || pathname.startsWith(path + '/')
+  })
 }
 
 /**
@@ -182,15 +189,19 @@ export async function updateSession(request: NextRequest) {
   }
 
   // User is authenticated - check subscription status
+  console.log('[Middleware] Checking subscription for user', user.id, 'on path', pathname)
   const hasAccess = await hasActiveAccess(supabase, user.id)
+  console.log('[Middleware] hasActiveAccess result:', hasAccess)
 
   if (!hasAccess) {
     // No active subscription, redirect to subscribe page
+    console.log('[Middleware] Redirecting to /subscribe - no active access')
     const url = request.nextUrl.clone()
     url.pathname = '/subscribe'
     return NextResponse.redirect(url)
   }
 
   // User has active access, allow request
+  console.log('[Middleware] Allowing access to', pathname)
   return supabaseResponse
 }

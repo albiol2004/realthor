@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Check, Sparkles, Zap, Star } from 'lucide-react'
+import { Check, Sparkles, Zap, Star, LogOut } from 'lucide-react'
 import { trpc } from '@/lib/trpc/client'
 import {
   PRICING_PLANS,
@@ -20,10 +21,18 @@ import {
  * Integrates with Stripe Checkout for payment processing
  */
 export default function SubscribePage() {
+  const router = useRouter()
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('yearly')
   const [isLoading, setIsLoading] = useState<string | null>(null)
 
+  const { data: session } = trpc.auth.getSession.useQuery()
   const createCheckoutMutation = trpc.payment.createCheckoutSession.useMutation()
+  const signOutMutation = trpc.auth.signOut.useMutation({
+    onSuccess: () => {
+      router.push('/login')
+      router.refresh()
+    },
+  })
 
   const standardPlans = getPlansByTier('standard')
   const professionalPlans = getPlansByTier('professional')
@@ -49,6 +58,10 @@ export default function SubscribePage() {
     }
   }
 
+  const handleSignOut = async () => {
+    await signOutMutation.mutateAsync()
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-6xl space-y-8">
@@ -63,6 +76,30 @@ export default function SubscribePage() {
           <p className="text-lg text-gray-600 dark:text-gray-400">
             The operating system for real estate professionals
           </p>
+
+          {/* Show logged-in user with sign out option */}
+          {session?.user && (
+            <div className="mt-6 inline-flex items-center gap-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg px-4 py-3">
+              <div className="flex flex-col items-start">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Logged in as
+                </p>
+                <p className="text-sm font-medium text-black dark:text-white">
+                  {session.user.email}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSignOut}
+                disabled={signOutMutation.isPending}
+                className="border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {signOutMutation.isPending ? 'Signing out...' : 'Switch Account'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Billing Toggle */}

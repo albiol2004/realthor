@@ -134,11 +134,11 @@ CREATE POLICY "Company admins can view company contacts"
   FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM agents a1
-      JOIN agents a2 ON a1.company_id = a2.company_id
-      WHERE a1.user_id = auth.uid()
-        AND a2.user_id = contacts.user_id
-        AND a1.company_id IS NOT NULL
+      SELECT 1 FROM agent a1
+      JOIN agent a2 ON a1.company = a2.company
+      WHERE a1."userID" = auth.uid()
+        AND a2."userID" = contacts.user_id
+        AND a1.company IS NOT NULL
     )
   );
 

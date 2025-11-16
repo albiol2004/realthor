@@ -48,7 +48,22 @@ async function hasActiveAccess(supabase: ReturnType<typeof createServerClient>, 
       .eq('user_id', userId)
       .single()
 
-    if (error || !subscription) {
+    // If there's an error fetching subscription, log it and deny access
+    if (error) {
+      console.error('[Middleware] Error fetching subscription for user', userId, ':', error.message)
+      // Only fail open for network/timeout errors, not for "not found" errors
+      if (error.code === 'PGRST116') {
+        // No subscription found - deny access
+        console.warn('[Middleware] No subscription found for user', userId)
+        return false
+      }
+      // For other errors (network issues, etc.), fail open to prevent lockout
+      console.warn('[Middleware] Database error, failing open for user', userId)
+      return true
+    }
+
+    if (!subscription) {
+      console.warn('[Middleware] No subscription data for user', userId)
       return false
     }
 
@@ -58,23 +73,45 @@ async function hasActiveAccess(supabase: ReturnType<typeof createServerClient>, 
     // Check trial access
     if (sub.status === 'trial') {
       const trialEnd = new Date(sub.trial_ends_at)
-      return now < trialEnd
+      const hasAccess = now < trialEnd
+      if (!hasAccess) {
+        console.info('[Middleware] Trial expired for user', userId)
+      }
+      return hasAccess
     }
 
     // Check active subscription
     if (sub.status === 'active') {
       if (!sub.subscription_end_date) {
-        return true // Active with no end date
+        console.warn('[Middleware] Active subscription with no end date for user', userId)
+        return true // Active with no end date (shouldn't happen, but safe)
       }
       const subEnd = new Date(sub.subscription_end_date)
-      return now < subEnd
+      const hasAccess = now < subEnd
+      if (!hasAccess) {
+        console.info('[Middleware] Active subscription expired for user', userId)
+      }
+      return hasAccess
     }
 
-    // Expired or cancelled
+    // Explicitly handle cancelled status
+    if (sub.status === 'cancelled') {
+      console.info('[Middleware] Subscription cancelled for user', userId)
+      return false
+    }
+
+    // Explicitly handle expired status
+    if (sub.status === 'expired') {
+      console.info('[Middleware] Subscription expired for user', userId)
+      return false
+    }
+
+    // Unknown status - deny access by default
+    console.warn('[Middleware] Unknown subscription status', sub.status, 'for user', userId)
     return false
   } catch (error) {
-    console.error('Error checking subscription:', error)
-    // On error, allow access (fail open to prevent lockout)
+    console.error('[Middleware] Unexpected error checking subscription:', error)
+    // On unexpected error, fail open to prevent complete lockout
     return true
   }
 }

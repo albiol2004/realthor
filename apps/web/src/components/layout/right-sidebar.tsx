@@ -129,6 +129,28 @@ export function RightSidebar() {
                 </Link>
               </div>
             )}
+
+            {subscriptionStatus.subscription.status === 'cancelled' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                  <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                    Subscription Cancelled
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Your subscription has been cancelled
+                </p>
+                <Link href="/subscribe">
+                  <Button
+                    size="sm"
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white dark:bg-orange-500 dark:hover:bg-orange-600 mt-2"
+                  >
+                    Resubscribe
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -45,8 +45,8 @@ export const createContactSchema = z.object({
   source: contactSourceSchema.optional(),
   tags: z.array(z.string()).default([]),
 
-  budgetMin: z.number().positive().optional(),
-  budgetMax: z.number().positive().optional(),
+  budgetMin: z.number().positive().max(999999999, 'Budget too large (max $999,999,999)').optional(),
+  budgetMax: z.number().positive().max(999999999, 'Budget too large (max $999,999,999)').optional(),
 
   notes: z.string().optional(),
   customFields: z.record(z.string(), z.any()).optional(),

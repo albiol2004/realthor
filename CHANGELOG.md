@@ -5,6 +5,336 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-01-17
+
+### Added - Properties Management & Documents (Phase 2 - Core CRM Continuation)
+
+#### Database Infrastructure
+
+- **Properties Table:** Complete real estate properties schema (`supabase/migrations/20250117_properties_and_documents.sql`)
+  - **Core Fields:**
+    - Identity: id (UUID), user_id (FK to users)
+    - Basic: title, description, address, city, state, zip_code, country
+    - Pricing: price (numeric with 2 decimals)
+    - Property Details: bedrooms, bathrooms (allows half baths), square_feet, lot_size, year_built
+  - **Property Types:**
+    - property_type (residential, commercial, land)
+    - status (available, pending, sold, rented)
+  - **Media:**
+    - images (text array for image URLs)
+    - virtual_tour_url (text)
+  - **Metadata:**
+    - listing_date (timestamptz)
+    - tags (text array for categorization)
+    - custom_fields (JSONB for extensibility)
+  - **Audit:**
+    - created_at, updated_at (with auto-update trigger)
+
+- **Documents Table:** Polymorphic document management
+  - Links to contacts, properties, or deals via entity_type/entity_id pattern
+  - Fields: filename, file_url, file_size, mime_type, category
+  - Supports document categorization (contract, inspection, appraisal, etc.)
+  - Prepared for future file upload integration
+
+- **Property-Contact Relationship:** Completed many-to-many with roles
+  - Added FK constraint: contact_properties.property_id → properties.id
+  - Unique constraint on (contact_id, property_id, role)
+  - Supports multiple roles: owner, buyer, seller, tenant
+  - Bidirectional relationship tracking
+
+- **Performance Indexes:**
+  - Standard indexes: user_id, status, property_type, price, created_at, updated_at
+  - Full-text search index on title, address, city fields
+  - Junction table indexes for efficient relationship queries
+
+- **Row-Level Security (RLS) Policies:**
+  - Users can view/create/update/delete only their own properties
+  - Property-contact relationship policies enforce ownership
+  - Document policies ensure entity-level access control
+
+#### Type System & Validation
+
+- **TypeScript Types:** Comprehensive property types (`types/crm.ts`)
+  - Core: `Property`, `PropertyWithRelations`, `Document`
+  - Input types: `CreatePropertyInput`, `UpdatePropertyInput`, `CreateDocumentInput`
+  - Filtering: `PropertiesFilterParams` with search, price range, bedrooms, bathrooms, sqft, type, status
+  - Enums: `PropertyType`, `PropertyStatus`, `DocumentCategory`, `EntityType`
+  - Helper functions:
+    - `formatPropertyPrice()` - Format price with $ symbol
+    - `formatPropertyDetails()` - Format bed/bath/sqft summary
+    - `getPropertyStatusColor()` - Status badge colors
+    - `getPropertyStatusLabel()` - Status display labels
+    - `getPropertyTypeLabel()` - Type display labels
+
+- **Zod Validation Schemas:** Type-safe validation (`lib/validations.ts`)
+  - `propertyTypeSchema`, `propertyStatusSchema`, `propertyRoleSchema`
+  - `createPropertySchema` - Full property creation with validations:
+    - Title: max 200 chars
+    - Address: max 300 chars
+    - Price: max $999,999,999
+    - Bedrooms: max 100
+    - Bathrooms: max 50
+    - Year built: 1800 to current year + 1
+    - Images: array of valid URLs
+  - `updatePropertySchema` - Partial updates
+  - `propertiesFilterSchema` - Advanced filtering with price ranges, sqft ranges
+  - `createDocumentSchema` - Document validation with 100MB file size limit
+  - `entityTypeSchema` - Polymorphic entity type validation
+
+#### Data Access Layer
+
+- **Properties Repository:** Clean data access (`server/repositories/properties.repository.ts`)
+  - **CRUD Operations:**
+    - `list()` - Advanced filtering (price, beds, baths, sqft, type, status, search)
+    - `findById()` - Get single property
+    - `create()` - Create new property
+    - `update()` - Update property
+    - `delete()` - Delete property
+    - `search()` - Quick search by title/address
+  - **Advanced Features:**
+    - Full-text search on title, address, city
+    - Price range filtering (min/max)
+    - Bedroom/bathroom/sqft range filtering
+    - Property type and status filtering
+    - Sorting by price, createdAt
+    - Pagination support
+  - Private `mapToProperty()` helper for database mapping
+
+- **Documents Repository:** Polymorphic document access (`server/repositories/documents.repository.ts`)
+  - `listByEntity()` - Get documents for specific entity (contact, property, deal)
+  - `listAll()` - Get all user documents
+  - `findById()` - Get single document
+  - `create()` - Create document link
+  - `update()` - Update document metadata
+  - `delete()` - Remove document
+
+#### Business Logic Layer
+
+- **Properties Service:** Business logic and validation (`server/services/properties.service.ts`)
+  - **Core Operations:**
+    - `list()` - List with filters
+    - `getById()` - Get with 404 error handling
+    - `create()` - Create with year built validation
+    - `update()` - Update with year built validation
+    - `delete()` - Delete with existence check
+    - `search()` - Quick search wrapper
+  - **Relationship Operations:**
+    - `getPropertyContacts()` - Get contacts linked to property with roles
+    - `linkToContact()` - Link property to contact with role validation
+    - `unlinkFromContact()` - Unlink from contact
+  - **Business Rules:**
+    - Year built must be between 1800 and current year + 1
+    - Price validation (positive, max $999,999,999)
+    - Property existence verification
+    - User ownership validation
+    - Duplicate relationship prevention
+
+- **Documents Service:** Document management (`server/services/documents.service.ts`)
+  - `listByEntity()` - Get entity documents
+  - `listAll()` - Get all user documents
+  - `create()` - Create with file size validation (100MB limit)
+  - `update()` - Update metadata
+  - `delete()` - Delete document
+  - URL format validation
+
+- **Contacts Service Enhancement:**
+  - `getContactProperties()` - Now fetches FULL property details (not just junction data)
+  - Mirrors properties.getContacts pattern
+  - Returns enriched property objects with role and linkedAt fields
+
+#### API Layer
+
+- **tRPC Properties Router:** Type-safe API endpoints (`server/routers/properties.ts`)
+  - All endpoints protected by `subscribedProcedure`
+  - **Query Endpoints:**
+    - `properties.list` - List with advanced filtering
+    - `properties.getById` - Get single property
+    - `properties.search` - Quick search
+    - `properties.getContacts` - Get linked contacts with roles
+  - **Mutation Endpoints:**
+    - `properties.create` - Create property
+    - `properties.update` - Update property
+    - `properties.delete` - Delete property
+    - `properties.linkToContact` - Link to contact with role
+    - `properties.unlinkFromContact` - Unlink from contact
+
+- **tRPC Documents Router:** Type-safe API endpoints (`server/routers/documents.ts`)
+  - `documents.listByEntity` - Get entity documents
+  - `documents.listAll` - Get all documents
+  - `documents.getById` - Get single document
+  - `documents.create` - Create document
+  - `documents.update` - Update document
+  - `documents.delete` - Delete document
+
+- **Integrated into main app router** (`server/routers/_app.ts`)
+
+#### User Interface
+
+- **Phone-Book Style Layout:** Matching Contacts pattern (`app/(dashboard)/properties/page.tsx`)
+  - Left panel: Property list (w-96) with search and filters
+  - Right panel: Selected property detail (flex-1)
+  - State management for selected property, create/edit dialogs
+  - tRPC queries with React Query caching
+  - Optimistic updates for mutations
+  - Toast notifications for all actions
+
+- **Property List Component:** Left sidebar (`components/properties/property-list.tsx`)
+  - Search bar with live filtering
+  - "Add Property" button
+  - Filter toggle (UI ready for implementation)
+  - Scrollable property list
+  - Property count footer
+  - Empty state when no properties
+  - Loading states
+
+- **Property Card Component:** Compact card display (`components/properties/property-card.tsx`)
+  - Property image with fallback Home icon
+  - Title with status badge (Available, Pending, Sold, Rented)
+  - Address with MapPin icon
+  - Price (formatted with $)
+  - Bed/bath/sqft details
+  - Property type badge (Residential, Commercial, Land)
+  - Selected state styling
+  - Dark mode support
+
+- **Property Detail Component:** Full detail view (`components/properties/property-detail.tsx`)
+  - **Header:**
+    - Property title and status badge
+    - Full address with city, state, zip
+    - Price and bed/bath/sqft summary
+    - Edit and Delete action buttons
+    - Tags display
+  - **Tabbed Interface:**
+    - **Property Info tab:** Description, details grid, listing date, virtual tour link
+    - **Images tab:** Image gallery with thumbnail selection, main image viewer
+    - **Contacts tab:** Linked contacts with roles (fully functional)
+    - **Documents tab:** Document management (placeholder)
+  - Responsive layout with ScrollArea
+  - Dark mode throughout
+
+- **Property Form Component:** Comprehensive form dialog (`components/properties/property-form.tsx`)
+  - **Two Modes:** Create and Edit (pre-filled)
+  - **Form Sections:**
+    - Basic Info: Title*, description, property type, status
+    - Address: Street*, city, state, zip, country
+    - Property Details: Price, bedrooms, bathrooms, sqft, lot size, year built
+    - Media: Virtual tour URL, image upload placeholder
+  - **Validation:**
+    - React Hook Form integration
+    - Zod schema validation
+    - Real-time error messages
+    - Number field handling (integers and decimals)
+  - Auto-reset on close
+  - Loading states during submission
+
+- **Property Contacts Tab:** Bidirectional linking (`components/properties/property-contacts-tab.tsx`)
+  - Displays contacts linked to property
+  - Contact cards with name, email, phone, company
+  - Role badges with color coding (Owner: blue, Buyer: green, Seller: purple, Tenant: orange)
+  - "Link Contact" button opens search dialog
+  - Unlink button for each contact
+  - Empty state with helpful message
+  - Real-time updates via tRPC query invalidation
+
+- **Link Contact Dialog:** Search and link (`components/properties/link-contact-dialog.tsx`)
+  - Combobox with autocomplete search (Command component)
+  - Real-time contact search by name, email, phone
+  - Role selection dropdown (Owner/Buyer/Seller/Tenant)
+  - Form validation with Zod
+  - Server-side search (shouldFilter={false})
+  - Success/error toast notifications
+
+- **Contact Properties Tab:** Reverse linking (`components/crm/contact-properties-tab.tsx`)
+  - Displays properties linked to contact
+  - Property cards with image, title, address, price, details
+  - Role and status badges
+  - "Link Property" button opens search dialog
+  - Unlink button for each property
+  - Empty state with helpful message
+  - Real-time updates
+
+- **Link Property Dialog:** Search and link (`components/crm/link-property-dialog.tsx`)
+  - Combobox with property search showing image thumbnails
+  - Real-time property search by title, address
+  - Image previews in search results
+  - Role selection dropdown
+  - Form validation with Zod
+  - Server-side search (shouldFilter={false})
+
+- **UI Components Added:**
+  - Command component (shadcn/ui) - Autocomplete search
+  - Popover component (shadcn/ui) - Dropdown positioning
+
+#### Integration
+
+- **Bidirectional Property-Contact Linking:**
+  - Link from Properties page → Contacts tab
+  - Link from CRM Contacts page → Properties tab
+  - Same contact can have different roles for different properties
+  - Real-time sync between both views
+  - Query invalidation ensures consistency
+
+### Changed
+
+- ContactsService.getContactProperties: Now fetches full property details (not just junction data)
+- ContactDetail component: Replaced properties tab placeholder with ContactPropertiesTab
+- PropertyDetail component: Replaced contacts tab placeholder with PropertyContactsTab
+- tRPC app router: Added properties and documents routers
+
+### Fixed
+
+- **Search Functionality:** Command component filtering interference (bec20fa)
+  - Issue: Command component's built-in client-side filtering was hiding server search results
+  - Solution: Added `shouldFilter={false}` to both LinkContactDialog and LinkPropertyDialog
+  - Impact: Search now works properly when typing in autocomplete fields
+
+- **Property Details Display:** Missing property data in contact properties tab (dfc03fc)
+  - Issue: ContactPropertiesTab showed undefined price and "Invalid Date" for linkedAt
+  - Root cause: getContactProperties only returned junction table data, not full property details
+  - Solution: Updated ContactsService.getContactProperties to fetch full property data via PropertiesRepository
+  - Impact: Price, images, address, and all property details now display correctly
+
+- **Date Serialization:** tRPC date handling
+  - Applied `as any` type casting pattern from Contacts implementation
+  - Prevents type errors with date serialization over tRPC
+
+### Technical Details
+
+- **Architecture Pattern:** Clean layered architecture (Router → Service → Repository → Database)
+- **Repository Pattern:** Consistent with Contacts implementation
+- **Type Safety:** End-to-end TypeScript from database to UI
+- **Full-Text Search:** PostgreSQL full-text search on title, address, city
+- **Performance:** Indexed queries, pagination support, efficient relationship loading
+- **Security:** RLS policies enforce user ownership, subscription checks on all endpoints
+- **Error Handling:** Typed errors, user-friendly messages, toast notifications
+- **Build:** ✅ Type check passed, ✅ Build successful (23 routes compiled)
+- **Dependencies:** shadcn/ui Command and Popover components added
+
+### Phase Status
+
+**Phase 1: Foundation** - ✅ Complete
+- ✅ Authentication + 7-day trial subscription system
+- ✅ Stripe payment integration
+- ✅ Dashboard MVP with action center
+- ✅ Navigation sidebars
+
+**Phase 2: Core CRM** - 🔄 In Progress (50% complete)
+- ✅ **Contacts CRUD** - Full implementation with phone-book UI
+- ✅ **Properties Management** - Complete with CRUD, search, filtering, image gallery
+- ✅ **Documents System** - Backend ready, UI placeholder
+- ✅ **Property-Contact Linking** - Bidirectional with role-based relationships
+- ⏳ Deals pipeline - Types defined
+- ⏳ Activities timeline - Types defined
+- ⏳ Advanced search & filters - Basic search done, advanced pending
+- ⏳ Dashboard stats - Placeholder data, awaiting real data integration
+
+**Next Steps:**
+- Deals pipeline implementation (kanban board UI)
+- Activities timeline (auto-logging)
+- Document upload UI with file management
+- Advanced filtering UI for properties
+- Dashboard integration with real CRM data
+
 ## [0.7.0] - 2025-01-16
 
 ### Added - CRM Contacts Module (Phase 2 - Core CRM Start)

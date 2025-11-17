@@ -149,7 +149,7 @@ export function LinkContactDialog({ open, onOpenChange, propertyId }: LinkContac
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-[400px] p-0">
-                      <Command>
+                      <Command shouldFilter={false}>
                         <CommandInput
                           placeholder="Search contacts by name, email, or phone..."
                           value={searchQuery}

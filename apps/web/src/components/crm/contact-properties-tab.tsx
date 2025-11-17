@@ -179,9 +179,11 @@ export function ContactPropertiesTab({ contactId }: ContactPropertiesTabProps) {
                         )}
                       </div>
 
-                      <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
-                        Linked {new Date(property.linkedAt).toLocaleDateString()}
-                      </p>
+                      {property.linkedAt && (
+                        <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
+                          Linked {new Date(property.linkedAt).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
 
                     {/* Actions */}

@@ -154,7 +154,43 @@ export class ContactsService {
   async getContactProperties(userId: string, contactId: string) {
     // Verify contact belongs to user
     const contact = await this.getById(userId, contactId)
-    return await contactsRepository.getContactProperties(contact.id)
+
+    // Get all contact-property relationships for this contact
+    const supabase = await (await import('@/lib/supabase/server')).createClient()
+
+    const { data, error } = await supabase
+      .from('contact_properties')
+      .select(`
+        id,
+        property_id,
+        role,
+        created_at
+      `)
+      .eq('contact_id', contact.id)
+
+    if (error) {
+      console.error('[ContactsService] Error getting contact properties:', error)
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get contact properties',
+      })
+    }
+
+    // Fetch full property details for each relationship
+    const { propertiesRepository } = await import('@/server/repositories/properties.repository')
+    const propertiesWithRoles = await Promise.all(
+      (data || []).map(async (rel) => {
+        const property = await propertiesRepository.findById(userId, rel.property_id)
+        return {
+          ...property,
+          role: rel.role as PropertyRole,
+          relationshipId: rel.id,
+          linkedAt: new Date(rel.created_at),
+        }
+      })
+    )
+
+    return propertiesWithRoles.filter((p) => p !== null)
   }
 
   /**

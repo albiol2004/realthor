@@ -28,6 +28,7 @@ import {
   Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ContactPropertiesTab } from './contact-properties-tab'
 
 interface ContactDetailProps {
   contact: Contact
@@ -286,18 +287,7 @@ export function ContactDetail({ contact, onEdit, onDelete, isDeleting }: Contact
 
         {/* Properties Tab */}
         <TabsContent value="properties" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
-                Associated Properties
-              </h3>
-              <div className="text-center py-12 text-gray-500 dark:text-gray-500">
-                <Home className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No properties linked</p>
-                <p className="text-sm mt-1">Properties will appear here when you add them</p>
-              </div>
-            </div>
-          </ScrollArea>
+          <ContactPropertiesTab contactId={contact.id} />
         </TabsContent>
 
         {/* Email Tab */}

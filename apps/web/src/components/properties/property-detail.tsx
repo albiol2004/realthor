@@ -25,6 +25,7 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PropertyContactsTab } from './property-contacts-tab'
 
 interface PropertyDetailProps {
   property: Property
@@ -300,18 +301,7 @@ export function PropertyDetail({ property, onEdit, onDelete, isDeleting }: Prope
 
         {/* Contacts Tab */}
         <TabsContent value="contacts" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
-                Linked Contacts
-              </h3>
-              <div className="text-center py-12 text-gray-500 dark:text-gray-500">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No contacts linked</p>
-                <p className="text-sm mt-1">Link contacts to this property</p>
-              </div>
-            </div>
-          </ScrollArea>
+          <PropertyContactsTab propertyId={property.id} />
         </TabsContent>
 
         {/* Documents Tab */}

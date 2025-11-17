@@ -147,12 +147,15 @@ export interface Property {
   state?: string
   zipCode?: string
   country?: string
+  latitude?: number
+  longitude?: number
   price?: number
   bedrooms?: number
   bathrooms?: number
   squareFeet?: number
   lotSize?: number
-  propertyType?: PropertyType
+  yearBuilt?: number
+  propertyType: PropertyType
   status: PropertyStatus
   listingDate?: Date
   images: string[]
@@ -161,6 +164,66 @@ export interface Property {
   customFields: Record<string, any>
   createdAt: Date
   updatedAt: Date
+}
+
+// For list views with computed fields
+export interface PropertyWithRelations extends Property {
+  contactCount?: number
+  documentCount?: number
+  dealCount?: number
+}
+
+// For creating properties
+export interface CreatePropertyInput {
+  title: string
+  description?: string
+  address: string
+  city?: string
+  state?: string
+  zipCode?: string
+  country?: string
+  latitude?: number
+  longitude?: number
+  price?: number
+  bedrooms?: number
+  bathrooms?: number
+  squareFeet?: number
+  lotSize?: number
+  yearBuilt?: number
+  propertyType?: PropertyType
+  status?: PropertyStatus
+  listingDate?: Date
+  images?: string[]
+  virtualTourUrl?: string
+  tags?: string[]
+  customFields?: Record<string, any>
+}
+
+// For updating properties
+export interface UpdatePropertyInput extends Partial<CreatePropertyInput> {
+  id: string
+}
+
+// Search and filter params
+export interface PropertiesFilterParams {
+  search?: string // Search in title, address, city
+  status?: PropertyStatus[]
+  propertyType?: PropertyType[]
+  tags?: string[]
+  priceMin?: number
+  priceMax?: number
+  bedroomsMin?: number
+  bedroomsMax?: number
+  bathroomsMin?: number
+  bathroomsMax?: number
+  squareFeetMin?: number
+  squareFeetMax?: number
+  city?: string
+  state?: string
+  sortBy?: 'title' | 'price' | 'bedrooms' | 'createdAt' | 'listingDate'
+  sortOrder?: 'asc' | 'desc'
+  limit?: number
+  offset?: number
 }
 
 // ============================================================================
@@ -219,6 +282,54 @@ export interface Activity {
   dueDate?: Date
   completedAt?: Date
   createdAt: Date
+}
+
+// ============================================================================
+// Document Types
+// ============================================================================
+
+export type EntityType = 'contact' | 'property' | 'deal'
+
+export type DocumentCategory =
+  | 'contract'
+  | 'id'
+  | 'inspection_report'
+  | 'photo'
+  | 'floor_plan'
+  | 'title_deed'
+  | 'other'
+
+export interface Document {
+  id: string
+  userId: string
+  filename: string
+  fileUrl: string
+  fileSize?: number // Bytes
+  fileType?: string // MIME type
+  entityType: EntityType
+  entityId: string
+  category?: DocumentCategory
+  tags: string[]
+  description?: string
+  uploadedBy?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface CreateDocumentInput {
+  filename: string
+  fileUrl: string
+  fileSize?: number
+  fileType?: string
+  entityType: EntityType
+  entityId: string
+  category?: DocumentCategory
+  tags?: string[]
+  description?: string
+}
+
+export interface UpdateDocumentInput extends Partial<CreateDocumentInput> {
+  id: string
 }
 
 // ============================================================================
@@ -304,4 +415,97 @@ export function getContactStatusLabel(status: ContactStatus): string {
     default:
       return status
   }
+}
+
+// Property Helper Functions
+export function formatPropertyPrice(property: Property): string {
+  if (!property.price) {
+    return 'Price not set'
+  }
+  return `$${property.price.toLocaleString()}`
+}
+
+export function formatPropertyDetails(property: Property): string {
+  const parts: string[] = []
+
+  if (property.bedrooms) parts.push(`${property.bedrooms} bed`)
+  if (property.bathrooms) parts.push(`${property.bathrooms} bath`)
+  if (property.squareFeet) parts.push(`${property.squareFeet.toLocaleString()} sqft`)
+
+  return parts.join(' • ') || 'No details'
+}
+
+export function getPropertyStatusColor(
+  status: PropertyStatus
+): { bg: string; text: string; border: string } {
+  switch (status) {
+    case 'available':
+      return {
+        bg: 'bg-green-50 dark:bg-green-950/20',
+        text: 'text-green-700 dark:text-green-300',
+        border: 'border-green-200 dark:border-green-800',
+      }
+    case 'pending':
+      return {
+        bg: 'bg-yellow-50 dark:bg-yellow-950/20',
+        text: 'text-yellow-700 dark:text-yellow-300',
+        border: 'border-yellow-200 dark:border-yellow-800',
+      }
+    case 'sold':
+      return {
+        bg: 'bg-gray-50 dark:bg-gray-950/20',
+        text: 'text-gray-700 dark:text-gray-300',
+        border: 'border-gray-200 dark:border-gray-800',
+      }
+    case 'rented':
+      return {
+        bg: 'bg-blue-50 dark:bg-blue-950/20',
+        text: 'text-blue-700 dark:text-blue-300',
+        border: 'border-blue-200 dark:border-blue-800',
+      }
+    default:
+      return {
+        bg: 'bg-gray-50 dark:bg-gray-950/20',
+        text: 'text-gray-700 dark:text-gray-300',
+        border: 'border-gray-200 dark:border-gray-800',
+      }
+  }
+}
+
+export function getPropertyStatusLabel(status: PropertyStatus): string {
+  switch (status) {
+    case 'available':
+      return 'Available'
+    case 'pending':
+      return 'Pending'
+    case 'sold':
+      return 'Sold'
+    case 'rented':
+      return 'Rented'
+    default:
+      return status
+  }
+}
+
+export function getPropertyTypeLabel(type: PropertyType): string {
+  switch (type) {
+    case 'residential':
+      return 'Residential'
+    case 'commercial':
+      return 'Commercial'
+    case 'land':
+      return 'Land'
+    default:
+      return type
+  }
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes'
+
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }

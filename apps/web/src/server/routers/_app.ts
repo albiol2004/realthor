@@ -3,6 +3,8 @@ import { authRouter } from './auth'
 import { subscriptionRouter } from './subscription'
 import { paymentRouter } from './payment'
 import { contactsRouter } from './contacts'
+import { propertiesRouter } from './properties'
+import { documentsRouter } from './documents'
 
 /**
  * Main tRPC Router
@@ -10,18 +12,18 @@ import { contactsRouter } from './contacts'
  * Combines all feature routers into one app router
  *
  * Phase 1: Auth router + Subscription router + Payment
- * Phase 2: Contacts, properties, deals, activities
- * Phase 3: Add documents
- * Phase 4: Add messaging
- * Phase 5: Add AI and search
+ * Phase 2: Contacts, Properties, Documents (in progress), Deals, Activities
+ * Phase 3: Messaging
+ * Phase 4: AI and search
  */
 export const appRouter = router({
   auth: authRouter,
   subscription: subscriptionRouter,
   payment: paymentRouter,
   contacts: contactsRouter,
+  properties: propertiesRouter,
+  documents: documentsRouter,
   // Phase 2+: Add more routers
-  // properties: propertiesRouter,
   // deals: dealsRouter,
   // messaging: messagingRouter,
   // search: searchRouter,

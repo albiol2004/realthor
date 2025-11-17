@@ -5,6 +5,280 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-01-16
+
+### Added - CRM Contacts Module (Phase 2 - Core CRM Start)
+
+#### Database Infrastructure
+
+- **Contacts Table:** Complete contacts schema (`supabase/migrations/20250116_contacts.sql`)
+  - **Core Fields:**
+    - Identity: id (UUID), user_id (FK to users)
+    - Personal: first_name, last_name, email, phone, profile_picture_url
+    - Professional: company, job_title
+    - Address: street, city, state, zip, country
+  - **CRM Fields:**
+    - status (lead, client, past_client)
+    - source (referral, website, social_media, cold_call, other)
+    - tags (text array for flexible categorization)
+  - **Real Estate Specific:**
+    - budget_min, budget_max (numeric with overflow protection)
+  - **Extensibility:**
+    - notes (text for freeform content)
+    - custom_fields (JSONB for future custom field support)
+  - **Audit:**
+    - created_at, updated_at (with auto-update trigger)
+
+- **Contact-Properties Junction Table:** Future-ready relationship management
+  - Links contacts to properties (preparation for Phase 2 continuation)
+  - role field (owner, buyer, seller, tenant)
+  - Unique constraint on contact-property-role combination
+  - Indexed for performance
+
+- **Performance Indexes:**
+  - Standard indexes: user_id, email, phone, status, created_at, updated_at
+  - Full-text search index on name, email, phone, company fields
+  - Junction table indexes for future property relationships
+
+- **Row-Level Security (RLS) Policies:**
+  - Agents can view/create/update/delete only their own contacts
+  - Contact-property relationship policies implemented
+  - Company admin policies prepared for future multi-user features
+
+#### Type System & Validation
+
+- **TypeScript Types:** Comprehensive type definitions (`types/crm.ts`)
+  - Core: `Contact`, `ContactWithRelations`, `ContactProperty`
+  - Input types: `CreateContactInput`, `UpdateContactInput`, `QuickCreateContactInput`
+  - Filtering: `ContactsFilterParams` with full search/filter/sort capabilities
+  - Enums: `ContactStatus`, `ContactSource`, `PropertyRole`
+  - Helper functions:
+    - `getContactFullName()` - Format full name
+    - `getContactInitials()` - Generate avatar initials
+    - `getContactDisplayInfo()` - Get display-ready contact info
+    - `formatContactBudget()` - Format budget range
+    - `getContactStatusColor()` - Status badge colors
+    - `getContactStatusLabel()` - Status display labels
+  - Future-ready types: Property, Deal, Activity (defined but not yet implemented)
+
+- **Zod Validation Schemas:** Type-safe validation (`lib/validations.ts`)
+  - `contactStatusSchema`, `contactSourceSchema`, `propertyRoleSchema`
+  - `quickCreateContactSchema` - Minimal fields (first name, last name, email, phone)
+  - `createContactSchema` - Full form with all fields and validations
+  - `updateContactSchema` - Partial updates with required id
+  - `contactsFilterSchema` - Comprehensive filtering/pagination
+  - `createContactPropertySchema`, `deleteContactPropertySchema`
+  - **Key Validations:**
+    - Email format validation
+    - Budget max validation (999,999,999 limit to prevent numeric overflow)
+    - String length limits on all fields
+    - Optional field handling with proper defaults
+
+#### Data Access Layer
+
+- **Contacts Repository:** Clean data access (`server/repositories/contacts.repository.ts`)
+  - **CRUD Operations:**
+    - `list()` - Advanced filtering, search, sorting, pagination
+    - `findById()` - Get single contact with type safety
+    - `findByEmail()` - Duplicate email check
+    - `create()` - Create new contact
+    - `update()` - Partial update support
+    - `delete()` - Delete contact
+  - **Relationship Management:**
+    - `getContactProperties()` - Get linked properties (future-ready)
+    - `addContactProperty()` - Link contact to property
+    - `removeContactProperty()` - Unlink contact from property
+  - **Advanced Features:**
+    - Full-text search across name, email, phone, company
+    - Multiple filter support (status, source, tags, budget range)
+    - Flexible sorting (firstName, lastName, createdAt, updatedAt)
+    - Pagination with configurable limit/offset
+  - Private `mapToContact()` helper for database row mapping
+
+#### Business Logic Layer
+
+- **Contacts Service:** Business logic and validation (`server/services/contacts.service.ts`)
+  - **Core Operations:**
+    - `list()` - List contacts with filters
+    - `getById()` - Get contact with 404 error handling
+    - `create()` - Create with duplicate email check and budget validation
+    - `quickCreate()` - Minimal fields with defaults (for quick add)
+    - `update()` - Update with duplicate email check and budget validation
+    - `delete()` - Delete with existence check
+    - `search()` - Quick search wrapper
+  - **Relationship Operations:**
+    - `getContactProperties()` - Get linked properties
+    - `linkToProperty()` - Link with duplicate relationship check
+    - `unlinkFromProperty()` - Unlink from property
+  - **Business Rules:**
+    - Duplicate email prevention (with email normalization)
+    - Budget range validation (min < max)
+    - Budget numeric overflow prevention (max $999,999,999)
+    - Contact existence verification
+    - User ownership validation
+
+#### API Layer
+
+- **tRPC Contacts Router:** Type-safe API endpoints (`server/routers/contacts.ts`)
+  - All endpoints protected by `subscribedProcedure` (requires active subscription)
+  - **Query Endpoints:**
+    - `contacts.list` - List contacts with optional filters
+    - `contacts.getById` - Get single contact by ID
+    - `contacts.search` - Quick search by name/email
+    - `contacts.getProperties` - Get linked properties
+  - **Mutation Endpoints:**
+    - `contacts.create` - Full contact creation
+    - `contacts.quickCreate` - Quick minimal contact creation
+    - `contacts.update` - Update contact (partial)
+    - `contacts.delete` - Delete contact
+    - `contacts.linkToProperty` - Link to property with role
+    - `contacts.unlinkFromProperty` - Unlink from property
+  - Integrated into main app router (`server/routers/_app.ts`)
+
+#### User Interface
+
+- **Phone-Book Style Layout:** Inspired by iOS Contacts (`app/(dashboard)/crm/page.tsx`)
+  - Left panel: Contact list with search and filters
+  - Right panel: Selected contact detail
+  - Responsive design with dark mode support
+  - State management for selected contact, dialogs
+  - tRPC queries with React Query caching
+  - Optimistic updates for mutations
+  - Toast notifications for all actions
+
+- **Contact List Component:** Left sidebar (`components/crm/contact-list.tsx`)
+  - **Features:**
+    - Search bar with live filtering
+    - Quick Add button (minimal form)
+    - New Contact button (full form)
+    - Filter toggle (UI ready for implementation)
+    - Scrollable contact list with virtual scrolling support
+    - Contact count footer
+    - Empty state when no contacts
+  - Performance optimized for large contact lists
+  - Loading states with skeleton UI
+
+- **Contact Card Component:** Compact card display (`components/crm/contact-card.tsx`)
+  - Avatar with initials fallback
+  - Full name with status badge (colored: lead/client/past client)
+  - Company, email, phone with icons
+  - Tags display (first 3 + "and X more" badge)
+  - Selected state styling (purple accent)
+  - Dark mode support
+  - Hover states
+
+- **Contact Detail Component:** Full detail view (`components/crm/contact-detail.tsx`)
+  - **Header:**
+    - Large avatar with profile picture support
+    - Full name and status
+    - Edit and Delete action buttons
+    - Tag display (all tags with wrapping)
+  - **Tabbed Interface:**
+    - Activity tab (placeholder for timeline)
+    - Contact Info tab (all contact details organized in sections)
+    - Properties tab (placeholder for linked properties)
+    - Email tab (placeholder for email integration)
+    - WhatsApp tab (placeholder for WhatsApp integration)
+    - Documents tab (placeholder for document management)
+  - **Contact Info Organization:**
+    - Personal section (email, phone)
+    - Professional section (company, job title)
+    - Address section (formatted address display)
+    - CRM Details section (status, source)
+    - Budget section (formatted budget range)
+    - Notes section (full notes display)
+  - Empty states for missing information
+  - Responsive layout
+
+- **Contact Form Component:** Comprehensive form dialog (`components/crm/contact-form.tsx`)
+  - **Three Modes:**
+    - Quick Create: First name, last name, email, phone (minimal friction)
+    - Full Create: All fields organized in sections
+    - Edit Mode: Pre-filled with existing data
+  - **Form Sections:**
+    - Basic Info: First name*, last name*, profile picture URL
+    - Contact: Email, phone
+    - Professional: Company, job title
+    - Address: Street, city, state, zip, country
+    - CRM Details: Status dropdown, source dropdown, tags input
+    - Budget: Min/max budget with validation
+    - Notes: Freeform text area
+  - **Validation:**
+    - React Hook Form integration
+    - Zod schema validation
+    - Real-time error messages
+    - Async validation for duplicate emails
+  - **UX Features:**
+    - Auto-reset on close
+    - Loading states during submission
+    - Success/error toast notifications
+    - Keyboard shortcuts (Escape to close)
+
+### Changed
+
+- **tRPC Router:** Added `contacts` router to main app router
+- **Database Migrations:** Added contacts schema (20250116_contacts.sql)
+- **Navigation:** CRM page now functional (was placeholder)
+- **Type Exports:** Added CRM types to main types index
+
+### Fixed
+
+- **Budget Validation:** Added max budget validation to prevent numeric overflow (7cb5a67)
+  - Issue: Budget fields could accept values larger than PostgreSQL numeric type limit
+  - Solution: Added 999,999,999 validation in Zod schema and service layer
+  - Impact: Prevents database errors during contact creation/update
+
+- **RLS Policy Recursion:** Removed recursive company admin policy causing infinite recursion (2f583d6)
+  - Issue: Company admin policy had recursive reference causing stack overflow
+  - Solution: Simplified RLS policy to non-recursive check
+  - Impact: Fixed 500 errors when querying contacts
+
+- **RLS Policy Column Names:** Corrected table and column names in contacts RLS policy (b0fc60b)
+  - Issue: Policy referenced incorrect column names from old schema
+  - Solution: Updated to match actual contacts table schema
+  - Impact: RLS policies now enforce correctly
+
+- **Foreign Key Constraint:** Removed properties FK constraint from contacts migration (9762df2)
+  - Issue: contact_properties table referenced non-existent properties table
+  - Solution: Removed FK constraint, will add later when properties table exists
+  - Impact: Migration runs successfully
+
+### Technical Details
+
+- **Architecture Pattern:** Clean layered architecture (Router → Service → Repository → Database)
+- **Repository Pattern:** Data access abstraction ready for adapter swapping
+- **Type Safety:** End-to-end type safety from database to UI
+- **Full-Text Search:** PostgreSQL full-text search on name, email, phone, company
+- **Performance:** Indexed queries, pagination support, virtual scrolling ready
+- **Security:** RLS policies enforce user ownership, subscription checks on all endpoints
+- **Error Handling:** Typed errors, user-friendly messages, toast notifications
+- **Build:** ✅ Type check passed, ✅ Build successful
+- **Dependencies:** React Query 5.90, React Hook Form 7.66, Zod 4.1
+
+### Phase Status
+
+**Phase 1: Foundation** - ✅ Complete
+- ✅ Authentication + 7-day trial subscription system
+- ✅ Stripe payment integration
+- ✅ Dashboard MVP with action center
+- ✅ Navigation sidebars
+
+**Phase 2: Core CRM** - 🔄 In Progress (25% complete)
+- ✅ **Contacts CRUD** - Full implementation with phone-book UI
+- ⏳ Properties management - Types defined, database ready
+- ⏳ Deals pipeline - Types defined
+- ⏳ Activities timeline - Types defined
+- ⏳ Search & filters - Basic contact search done, advanced pending
+- ⏳ Dashboard stats - Placeholder data, awaiting real data integration
+
+**Next Steps:**
+- Properties CRUD implementation (database, API, UI)
+- Deals pipeline (kanban board UI)
+- Activities timeline (auto-logging)
+- Contact-Property relationship UI
+- Advanced filtering for contacts
+- Dashboard integration with real CRM data
+
 ## [0.6.0] - 2025-11-14
 
 ### Added - Stripe Payment Integration (Phase D)

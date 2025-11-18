@@ -226,7 +226,8 @@ INSTRUCTIONS:
    */
   private async loadUserContacts(userId: string): Promise<Contact[]> {
     try {
-      return await contactsService.list(userId, {})
+      const result = await contactsService.list(userId, {})
+      return result.contacts
     } catch (error) {
       console.error('Failed to load contacts for AI context:', error)
       return []
@@ -238,7 +239,8 @@ INSTRUCTIONS:
    */
   private async loadUserProperties(userId: string): Promise<Property[]> {
     try {
-      return await propertiesService.list(userId, {})
+      const result = await propertiesService.list(userId, {})
+      return result.properties
     } catch (error) {
       console.error('Failed to load properties for AI context:', error)
       return []

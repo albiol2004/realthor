@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`📄 OCR webhook received for document ${document_id}: ${status}`)
 
-    // Create admin client (bypasses RLS)
-    const supabase = createClient()
+    // Create server client
+    const supabase = await createClient()
 
     if (status === 'completed' && ocr_text) {
       // Step 1: Get document details

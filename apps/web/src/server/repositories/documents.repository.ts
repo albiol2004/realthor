@@ -173,7 +173,7 @@ export class DocumentsRepository {
       filename: row.filename,
       fileUrl: row.file_url,
       fileSize: row.file_size,
-      fileType: row.file_type,
+      fileType: row.mime_type,
       entityType: row.entity_type,
       entityId: row.entity_id,
       category: row.category,
@@ -182,6 +182,25 @@ export class DocumentsRepository {
       uploadedBy: row.uploaded_by,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
+
+      // OCR fields
+      ocrText: row.ocr_text,
+      ocrStatus: row.ocr_status || 'pending',
+      ocrProcessedAt: row.ocr_processed_at ? new Date(row.ocr_processed_at) : undefined,
+
+      // AI metadata fields
+      aiMetadata: row.ai_metadata,
+      aiConfidence: row.ai_confidence,
+      aiProcessedAt: row.ai_processed_at ? new Date(row.ai_processed_at) : undefined,
+
+      // Document intelligence fields
+      hasSignature: row.has_signature || false,
+      signatureStatus: row.signature_status,
+      importanceScore: row.importance_score,
+      extractedNames: row.extracted_names || [],
+      extractedDates: row.extracted_dates || [],
+      relatedContactIds: row.related_contact_ids || [],
+      relatedPropertyIds: row.related_property_ids || [],
     }
   }
 }

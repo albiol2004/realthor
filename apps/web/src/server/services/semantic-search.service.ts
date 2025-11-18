@@ -43,7 +43,7 @@ export class SemanticSearchService {
     const queryEmbedding = await this.generateQueryEmbedding(query)
 
     // Step 2: Call the database function for semantic search
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const { data, error } = await supabase.rpc('search_documents_by_embedding', {
       query_embedding: queryEmbedding,
@@ -100,7 +100,7 @@ export class SemanticSearchService {
     const results = await this.searchDocuments(userId, params)
 
     // Fetch full document details for each result
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const documentIds = [...new Set(results.map((r) => r.documentId))]
 
@@ -139,7 +139,7 @@ export class SemanticSearchService {
     documentId: string,
     limit: number = 10
   ): Promise<SemanticSearchResult[]> {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Get the first embedding for the document
     const { data: embeddingData, error: embeddingError } = await supabase

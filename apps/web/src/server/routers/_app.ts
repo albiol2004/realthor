@@ -5,6 +5,7 @@ import { paymentRouter } from './payment'
 import { contactsRouter } from './contacts'
 import { propertiesRouter } from './properties'
 import { documentsRouter } from './documents'
+import { searchRouter } from './search'
 
 /**
  * Main tRPC Router
@@ -14,7 +15,7 @@ import { documentsRouter } from './documents'
  * Phase 1: Auth router + Subscription router + Payment
  * Phase 2: Contacts, Properties, Documents (in progress), Deals, Activities
  * Phase 3: Messaging
- * Phase 4: AI and search
+ * Phase 4: AI and search ✅ (Semantic search now available!)
  */
 export const appRouter = router({
   auth: authRouter,
@@ -23,10 +24,10 @@ export const appRouter = router({
   contacts: contactsRouter,
   properties: propertiesRouter,
   documents: documentsRouter,
+  search: searchRouter, // ✅ Semantic document search
   // Phase 2+: Add more routers
   // deals: dealsRouter,
   // messaging: messagingRouter,
-  // search: searchRouter,
   // ai: aiRouter,
 })
 

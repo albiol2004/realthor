@@ -1,0 +1,31 @@
+[Unit]
+Description=Kairo VPS OCR Service
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=ocruser
+Group=ocruser
+WorkingDirectory=/opt/kairo/vps-ocr-service
+Environment="PATH=/opt/kairo/vps-ocr-service/venv/bin"
+# Pydantic reads .env directly from WorkingDirectory
+
+# Main command
+ExecStart=/opt/kairo/vps-ocr-service/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ocr-service
+
+# Resource limits
+LimitNOFILE=65535
+MemoryMax=6G
+
+[Install]
+WantedBy=multi-user.target

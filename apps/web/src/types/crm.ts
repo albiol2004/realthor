@@ -299,6 +299,39 @@ export type DocumentCategory =
   | 'title_deed'
   | 'other'
 
+export type OCRStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
+export type SignatureStatus = 'unsigned' | 'partially_signed' | 'fully_signed'
+
+// AI-extracted metadata structure
+export interface AIMetadata {
+  // People mentioned in document
+  names?: Array<{
+    name: string
+    context: string // "buyer", "seller", "agent", "witness"
+    confidence: number
+  }>
+
+  // Important dates
+  dates?: Array<{
+    date: Date
+    type: string // "closing_date", "inspection_date", "expiration_date"
+    confidence: number
+  }>
+
+  // Document properties
+  documentType?: string // "contract", "inspection_report", "id"
+  hasSignature?: boolean
+  signatureCount?: number
+
+  // Importance assessment
+  importanceReasons?: string[]
+
+  // Auto-linking suggestions
+  suggestedContacts?: Array<{ contactId: string; confidence: number }>
+  suggestedProperties?: Array<{ propertyId: string; confidence: number }>
+}
+
 export interface Document {
   id: string
   userId: string
@@ -314,6 +347,25 @@ export interface Document {
   uploadedBy?: string
   createdAt: Date
   updatedAt: Date
+
+  // OCR fields
+  ocrText?: string
+  ocrStatus: OCRStatus
+  ocrProcessedAt?: Date
+
+  // AI metadata fields
+  aiMetadata?: AIMetadata
+  aiConfidence?: number // 0.00 to 1.00
+  aiProcessedAt?: Date
+
+  // Document intelligence fields
+  hasSignature: boolean
+  signatureStatus?: SignatureStatus
+  importanceScore?: number // 1-5 scale (1=low, 5=critical)
+  extractedNames: string[]
+  extractedDates: Date[]
+  relatedContactIds: string[]
+  relatedPropertyIds: string[]
 }
 
 export interface CreateDocumentInput {
@@ -330,6 +382,43 @@ export interface CreateDocumentInput {
 
 export interface UpdateDocumentInput extends Partial<CreateDocumentInput> {
   id: string
+}
+
+// ============================================================================
+// Document Embeddings & Semantic Search Types
+// ============================================================================
+
+export interface DocumentEmbedding {
+  id: string
+  documentId: string
+  userId: string
+  embedding: number[] // 384-dimensional vector
+  contentHash: string
+  chunkIndex: number
+  chunkText: string
+  chunkLength: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface SemanticSearchResult {
+  documentId: string
+  filename: string
+  fileUrl: string
+  category?: string
+  similarity: number
+  chunkText: string
+  chunkIndex: number
+  // Related document fields for context
+  document?: Document
+}
+
+export interface SemanticSearchParams {
+  query: string
+  threshold?: number // Minimum similarity (0-1), default 0.6
+  limit?: number // Max results, default 20
+  entityType?: EntityType // Filter by entity type
+  category?: DocumentCategory // Filter by category
 }
 
 // ============================================================================

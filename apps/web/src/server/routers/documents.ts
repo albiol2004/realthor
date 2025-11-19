@@ -5,6 +5,7 @@ import {
   createDocumentSchema,
   updateDocumentSchema,
   entityTypeSchema,
+  documentSearchSchema,
 } from '@/lib/validations'
 
 /**
@@ -72,5 +73,14 @@ export const documentsRouter = router({
     .mutation(async ({ ctx, input }) => {
       await documentsService.delete(ctx.user.id, input.id)
       return { success: true }
+    }),
+
+  /**
+   * Smart filtered search with full-text search
+   */
+  search: subscribedProcedure
+    .input(documentSearchSchema)
+    .query(async ({ ctx, input }) => {
+      return await documentsService.search(ctx.user.id, input)
     }),
 })

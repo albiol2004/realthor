@@ -8,6 +8,7 @@ import {
   Users,
   Building2,
   FileCheck,
+  FileText,
   Share2,
   UserCog,
 } from 'lucide-react'
@@ -39,6 +40,12 @@ const navigationItems = [
     href: '/compliance',
     icon: FileCheck,
     description: 'Documents & Checklists',
+  },
+  {
+    name: 'Documents',
+    href: '/documents',
+    icon: FileText,
+    description: 'Document Library & Search',
   },
   {
     name: 'Social',

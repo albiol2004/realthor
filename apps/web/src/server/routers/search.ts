@@ -1,6 +1,7 @@
 import { router } from '@/lib/trpc/server'
 import { subscribedProcedure } from '@/lib/trpc/server'
 import { semanticSearchService } from '@/server/services/semantic-search.service'
+import { documentTypeSchema } from '@/lib/validations'
 import { z } from 'zod'
 
 /**
@@ -19,17 +20,7 @@ export const searchRouter = router({
         threshold: z.number().min(0).max(1).optional().default(0.6),
         limit: z.number().min(1).max(100).optional().default(20),
         entityType: z.enum(['contact', 'property', 'deal']).optional(),
-        category: z
-          .enum([
-            'contract',
-            'id',
-            'inspection_report',
-            'photo',
-            'floor_plan',
-            'title_deed',
-            'other',
-          ])
-          .optional(),
+        category: documentTypeSchema.optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -50,17 +41,7 @@ export const searchRouter = router({
         threshold: z.number().min(0).max(1).optional().default(0.6),
         limit: z.number().min(1).max(100).optional().default(20),
         entityType: z.enum(['contact', 'property', 'deal']).optional(),
-        category: z
-          .enum([
-            'contract',
-            'id',
-            'inspection_report',
-            'photo',
-            'floor_plan',
-            'title_deed',
-            'other',
-          ])
-          .optional(),
+        category: documentTypeSchema.optional(),
       })
     )
     .query(async ({ ctx, input }) => {

@@ -84,8 +84,8 @@ export function DocumentCard({ document, isSelected, onClick }: DocumentCardProp
           <div className="mt-0.5 text-muted-foreground">{getFileIcon()}</div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm truncate">{document.filename}</p>
-            {document.category && (
-              <p className="text-xs text-muted-foreground">{document.category}</p>
+            {document.documentType && (
+              <p className="text-xs text-muted-foreground">{document.documentType}</p>
             )}
           </div>
         </div>

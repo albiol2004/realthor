@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { trpc } from "@/lib/trpc/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,14 +21,25 @@ export function DocumentList({
   onUploadClick,
 }: DocumentListProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
 
-  // Fetch all documents
-  const { data: documents, isLoading } = trpc.documents.listAll.useQuery()
+  // Debounce search query (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
-  // Filter documents by search query
-  const filteredDocuments = documents?.filter((doc) =>
-    doc.filename.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Use smart search (full-text on OCR + filename)
+  const { data: documents, isLoading } = trpc.documents.search.useQuery({
+    query: debouncedQuery || undefined,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+    limit: 100,
+  })
+
+  const filteredDocuments = documents
 
   return (
     <div className="w-96 flex flex-col border-r">

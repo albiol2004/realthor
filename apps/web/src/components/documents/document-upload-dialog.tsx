@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/lib/trpc/client"
 import { toast } from "sonner"
 import { Upload, FileText, X, Loader2 } from "lucide-react"
-import type { DocumentCategory } from "@/types/crm"
+import type { DocumentType } from "@/types/crm"
 
 interface DocumentUploadDialogProps {
   open: boolean
@@ -19,7 +19,7 @@ interface DocumentUploadDialogProps {
 
 export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null)
-  const [category, setCategory] = useState<DocumentCategory>("other")
+  const [category, setCategory] = useState<DocumentType>("otro")
   const [isUploading, setIsUploading] = useState(false)
 
   const utils = trpc.useUtils()
@@ -94,7 +94,7 @@ export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialo
   // Handle close
   const handleClose = () => {
     setFile(null)
-    setCategory("other")
+    setCategory("otro")
     onOpenChange(false)
   }
 
@@ -157,7 +157,7 @@ export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialo
           {/* Category */}
           <div>
             <Label htmlFor="category">Category (Optional)</Label>
-            <Select value={category} onValueChange={(value) => setCategory(value as DocumentCategory)}>
+            <Select value={category} onValueChange={(value) => setCategory(value as DocumentType)}>
               <SelectTrigger id="category" className="mt-1">
                 <SelectValue />
               </SelectTrigger>
@@ -166,9 +166,9 @@ export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialo
                 <SelectItem value="inspection">Inspection</SelectItem>
                 <SelectItem value="appraisal">Appraisal</SelectItem>
                 <SelectItem value="disclosure">Disclosure</SelectItem>
-                <SelectItem value="title">Title</SelectItem>
-                <SelectItem value="insurance">Insurance</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="escritura_propiedad">Escritura Propiedad</SelectItem>
+                <SelectItem value="contrato_compraventa">Contrato Compraventa</SelectItem>
+                <SelectItem value="otro">Otro</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -290,14 +290,83 @@ export interface Activity {
 
 export type EntityType = 'contact' | 'property' | 'deal'
 
-export type DocumentCategory =
-  | 'contract'
-  | 'id'
-  | 'inspection_report'
-  | 'photo'
-  | 'floor_plan'
-  | 'title_deed'
-  | 'other'
+// Comprehensive Spanish Real Estate Document Types
+export type DocumentType =
+  // Contratos / Contracts
+  | 'contrato_compraventa' // Purchase-sale contract
+  | 'contrato_arras' // Earnest money contract
+  | 'contrato_alquiler' // Rental contract
+  | 'contrato_reserva' // Reservation contract
+  | 'contrato_obra' // Construction contract
+  | 'contrato_hipoteca' // Mortgage contract
+
+  // Escrituras / Deeds
+  | 'escritura_propiedad' // Property deed
+  | 'escritura_hipoteca' // Mortgage deed
+  | 'nota_simple' // Simple registry note
+
+  // Certificados / Certificates
+  | 'certificado_eficiencia_energetica' // Energy efficiency certificate (CEE)
+  | 'certificado_habitabilidad' // Habitability certificate (Cédula de Habitabilidad)
+  | 'certificado_antigüedad' // Antiquity certificate
+  | 'certificado_cargas' // Certificate of charges
+
+  // Licencias y Permisos / Licenses & Permits
+  | 'licencia_ocupacion' // Occupancy license
+  | 'licencia_obra' // Building permit
+  | 'licencia_primera_ocupacion' // First occupancy license
+
+  // Fiscales / Tax Documents
+  | 'ibi' // Property tax (Impuesto sobre Bienes Inmuebles)
+  | 'plusvalia' // Capital gains tax
+  | 'modelo_210' // Non-resident tax form
+  | 'modelo_600' // Transfer tax form
+  | 'modelo_714' // Wealth tax form
+
+  // Comunidad / Community
+  | 'estatutos_comunidad' // Community statutes
+  | 'acta_junta' // Community meeting minutes
+  | 'recibo_comunidad' // Community fees receipt
+  | 'certificado_deudas_comunidad' // Certificate of community debts
+
+  // Inspecciones y Valoraciones / Inspections & Appraisals
+  | 'informe_tasacion' // Appraisal report
+  | 'inspeccion_tecnica' // Technical inspection (ITE)
+  | 'informe_cedulas_ilegales' // Illegal rooms report
+
+  // Servicios / Utilities
+  | 'contrato_luz' // Electricity contract
+  | 'contrato_agua' // Water contract
+  | 'contrato_gas' // Gas contract
+  | 'boletin_electrico' // Electrical certificate
+
+  // Identificación / Identification
+  | 'dni' // National ID (Spain)
+  | 'nie' // Foreign ID number
+  | 'pasaporte' // Passport
+  | 'poder_notarial' // Power of attorney
+
+  // Planos y Documentación Técnica / Plans & Technical Docs
+  | 'plano_vivienda' // Floor plan
+  | 'plano_catastral' // Cadastral plan
+  | 'referencia_catastral' // Cadastral reference
+  | 'proyecto_tecnico' // Technical project
+
+  // Fotografías / Photos
+  | 'foto_exterior' // Exterior photo
+  | 'foto_interior' // Interior photo
+  | 'foto_defecto' // Defect photo
+
+  // Seguros / Insurance
+  | 'seguro_hogar' // Home insurance
+  | 'seguro_vida' // Life insurance
+  | 'seguro_decenal' // 10-year insurance
+
+  // Otros / Other
+  | 'recibo_pago' // Payment receipt
+  | 'factura' // Invoice
+  | 'presupuesto' // Quote/estimate
+  | 'otro' // Other
 
 export type OCRStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -341,9 +410,14 @@ export interface Document {
   fileType?: string // MIME type
   entityType: EntityType
   entityId: string
-  category?: DocumentCategory
+
+  // Metadata fields (editable)
+  documentType?: DocumentType // Spanish real estate document type
+  documentDate?: Date // Date document was created/signed
+  dueDate?: Date // Date document expires or is due
+  description?: string // AI-generated but editable
   tags: string[]
-  description?: string
+
   uploadedBy?: string
   createdAt: Date
   updatedAt: Date
@@ -364,8 +438,8 @@ export interface Document {
   importanceScore?: number // 1-5 scale (1=low, 5=critical)
   extractedNames: string[]
   extractedDates: Date[]
-  relatedContactIds: string[]
-  relatedPropertyIds: string[]
+  relatedContactIds: string[] // Fuzzy searchable contacts
+  relatedPropertyIds: string[] // Fuzzy searchable properties
 }
 
 export interface CreateDocumentInput {
@@ -375,9 +449,13 @@ export interface CreateDocumentInput {
   fileType?: string
   entityType: EntityType
   entityId: string
-  category?: DocumentCategory
+  documentType?: DocumentType
+  documentDate?: Date
+  dueDate?: Date
   tags?: string[]
   description?: string
+  relatedContactIds?: string[]
+  relatedPropertyIds?: string[]
 }
 
 export interface UpdateDocumentInput extends Partial<CreateDocumentInput> {
@@ -418,7 +496,7 @@ export interface SemanticSearchParams {
   threshold?: number // Minimum similarity (0-1), default 0.6
   limit?: number // Max results, default 20
   entityType?: EntityType // Filter by entity type
-  category?: DocumentCategory // Filter by category
+  category?: DocumentType // Filter by category
 }
 
 // ============================================================================

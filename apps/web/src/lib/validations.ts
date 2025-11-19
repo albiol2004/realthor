@@ -165,14 +165,70 @@ export const propertiesFilterSchema = z.object({
 
 export const entityTypeSchema = z.enum(['contact', 'property', 'deal'])
 
-export const documentCategorySchema = z.enum([
-  'contract',
-  'id',
-  'inspection_report',
-  'photo',
-  'floor_plan',
-  'title_deed',
-  'other',
+export const documentTypeSchema = z.enum([
+  // Contratos
+  'contrato_compraventa',
+  'contrato_arras',
+  'contrato_alquiler',
+  'contrato_reserva',
+  'contrato_obra',
+  'contrato_hipoteca',
+  // Escrituras
+  'escritura_propiedad',
+  'escritura_hipoteca',
+  'nota_simple',
+  // Certificados
+  'certificado_eficiencia_energetica',
+  'certificado_habitabilidad',
+  'certificado_antigüedad',
+  'certificado_cargas',
+  // Licencias
+  'licencia_ocupacion',
+  'licencia_obra',
+  'licencia_primera_ocupacion',
+  // Fiscales
+  'ibi',
+  'plusvalia',
+  'modelo_210',
+  'modelo_600',
+  'modelo_714',
+  // Comunidad
+  'estatutos_comunidad',
+  'acta_junta',
+  'recibo_comunidad',
+  'certificado_deudas_comunidad',
+  // Inspecciones
+  'informe_tasacion',
+  'inspeccion_tecnica',
+  'informe_cedulas_ilegales',
+  // Servicios
+  'contrato_luz',
+  'contrato_agua',
+  'contrato_gas',
+  'boletin_electrico',
+  // Identificación
+  'dni',
+  'nie',
+  'pasaporte',
+  'poder_notarial',
+  // Planos
+  'plano_vivienda',
+  'plano_catastral',
+  'referencia_catastral',
+  'proyecto_tecnico',
+  // Fotografías
+  'foto_exterior',
+  'foto_interior',
+  'foto_defecto',
+  // Seguros
+  'seguro_hogar',
+  'seguro_vida',
+  'seguro_decenal',
+  // Otros
+  'recibo_pago',
+  'factura',
+  'presupuesto',
+  'otro',
 ])
 
 // Create document schema
@@ -183,12 +239,37 @@ export const createDocumentSchema = z.object({
   fileType: z.string().max(100).optional(),
   entityType: entityTypeSchema,
   entityId: z.string().uuid('Invalid entity ID'),
-  category: documentCategorySchema.optional(),
+  documentType: documentTypeSchema.optional(),
+  documentDate: z.date().optional(),
+  dueDate: z.date().optional(),
   tags: z.array(z.string()).default([]),
-  description: z.string().max(1000).optional(),
+  description: z.string().max(2000).optional(),
+  relatedContactIds: z.array(z.string().uuid()).optional(),
+  relatedPropertyIds: z.array(z.string().uuid()).optional(),
 })
 
 // Update document schema (all fields optional except id)
 export const updateDocumentSchema = createDocumentSchema.partial().extend({
   id: z.string().uuid('Invalid document ID'),
+})
+
+// Document search schema (smart filtered search)
+export const documentSearchSchema = z.object({
+  query: z.string().optional(), // Full-text search on filename + OCR text
+  entityType: entityTypeSchema.optional(),
+  entityId: z.string().uuid().optional(),
+  documentType: documentTypeSchema.optional(),
+  tags: z.array(z.string()).optional(),
+  ocrStatus: z.enum(['pending', 'processing', 'completed', 'failed']).optional(),
+  hasSignature: z.boolean().optional(),
+  importanceScore: z.number().int().min(1).max(5).optional(),
+  importanceScoreMin: z.number().int().min(1).max(5).optional(),
+  dateFrom: z.date().optional(),
+  dateTo: z.date().optional(),
+  sortBy: z
+    .enum(['filename', 'createdAt', 'importanceScore', 'ocrProcessedAt', 'documentDate', 'dueDate'])
+    .default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  limit: z.number().int().positive().max(1000).default(50),
+  offset: z.number().int().nonnegative().default(0),
 })

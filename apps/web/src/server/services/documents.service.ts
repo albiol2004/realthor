@@ -141,6 +141,29 @@ export class DocumentsService {
     // Delete database record (cascades to embeddings and queue entries)
     await documentsRepository.delete(userId, documentId)
   }
+
+  /**
+   * Smart filtered search with full-text search
+   */
+  async search(userId: string, params: {
+    query?: string
+    entityType?: EntityType
+    entityId?: string
+    documentType?: string
+    tags?: string[]
+    ocrStatus?: 'pending' | 'processing' | 'completed' | 'failed'
+    hasSignature?: boolean
+    importanceScore?: number
+    importanceScoreMin?: number
+    dateFrom?: Date
+    dateTo?: Date
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    limit?: number
+    offset?: number
+  }): Promise<Document[]> {
+    return await documentsRepository.search(userId, params)
+  }
 }
 
 export const documentsService = new DocumentsService()

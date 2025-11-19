@@ -68,27 +68,46 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error("Storage upload error:", uploadError)
       return NextResponse.json(
-        { error: "Failed to upload file to storage" },
+        {
+          error: "Failed to upload file to storage",
+          details: uploadError.message
+        },
         { status: 500 }
       )
     }
 
-    // Get public URL
-    const {
-      data: { publicUrl },
-    } = supabase.storage
+    // Get signed URL (authenticated access - expires in 1 year)
+    // SECURITY: Using signed URLs instead of public URLs to protect sensitive documents
+    // Each user can only access their own files via RLS policies
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from("documents")
-      .getPublicUrl(uploadData.path)
+      .createSignedUrl(uploadData.path, 31536000) // 365 days in seconds
+
+    if (signedUrlError || !signedUrlData) {
+      console.error("Signed URL generation error:", signedUrlError)
+      // Clean up uploaded file
+      await supabase.storage.from("documents").remove([uploadData.path])
+      return NextResponse.json(
+        {
+          error: "Failed to generate access URL",
+          details: signedUrlError?.message
+        },
+        { status: 500 }
+      )
+    }
+
+    const fileUrl = signedUrlData.signedUrl
 
     // Create document record
+    // Using file_type (trigger automatically syncs to mime_type)
     const { data: document, error: documentError } = await supabase
       .from("documents")
       .insert({
         user_id: user.id,
         filename: file.name,
-        file_url: publicUrl,
+        file_url: fileUrl,
         file_size: file.size,
-        mime_type: file.type,
+        file_type: file.type,
         category,
         ocr_status: "pending",
       })
@@ -100,7 +119,10 @@ export async function POST(request: NextRequest) {
       // Clean up uploaded file
       await supabase.storage.from("documents").remove([uploadData.path])
       return NextResponse.json(
-        { error: "Failed to create document record" },
+        {
+          error: "Failed to create document record",
+          details: documentError.message
+        },
         { status: 500 }
       )
     }
@@ -111,7 +133,7 @@ export async function POST(request: NextRequest) {
       .insert({
         document_id: document.id,
         user_id: user.id,
-        file_url: publicUrl,
+        file_url: fileUrl,
         file_type: file.type,
         status: "queued",
       })
@@ -129,7 +151,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Upload error:", error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     )
   }

@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { X, Download, Trash2, FileText, Brain, Search } from "lucide-react"
+import { X, Download, Trash2, FileText, Brain, Search, Loader2 } from "lucide-react"
+import { trpc } from "@/lib/trpc/client"
+import { toast } from "sonner"
 import type { Document } from "@/types/crm"
 
 interface DocumentDetailProps {
@@ -16,6 +18,19 @@ interface DocumentDetailProps {
 
 export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailProps) {
   const [activeTab, setActiveTab] = useState("viewer")
+  const utils = trpc.useUtils()
+
+  // Delete mutation
+  const deleteMutation = trpc.documents.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Document deleted successfully")
+      utils.documents.listAll.invalidate()
+      onClose()
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to delete document")
+    },
+  })
 
   // Format file size
   const formatFileSize = (bytes?: number) => {
@@ -35,8 +50,10 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
 
   // Handle delete
   const handleDelete = () => {
-    // TODO: Implement delete confirmation
-    alert("Delete functionality coming soon")
+    if (!confirm(`Are you sure you want to delete "${document.filename}"? This action cannot be undone.`)) {
+      return
+    }
+    deleteMutation.mutate({ id: document.id })
   }
 
   return (
@@ -62,13 +79,22 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleDownload}>
+            <Button variant="outline" size="sm" onClick={handleDownload} disabled={deleteMutation.isPending}>
               <Download className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDelete}>
-              <Trash2 className="h-4 w-4" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
             </Button>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={deleteMutation.isPending}>
               <X className="h-4 w-4" />
             </Button>
           </div>

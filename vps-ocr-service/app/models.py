@@ -1,8 +1,9 @@
 """Pydantic models for API requests/responses"""
 
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
+from uuid import UUID
 
 
 class OCRJob(BaseModel):
@@ -12,6 +13,14 @@ class OCRJob(BaseModel):
     document_id: str
     file_url: str
     file_type: str
+
+    @field_validator('queue_id', 'document_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Convert UUID objects to strings"""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
 
 class OCRResult(BaseModel):
@@ -33,6 +42,14 @@ class EmbeddingChunk(BaseModel):
     chunk_length: int
     embedding: List[float]
     content_hash: str
+
+    @field_validator('document_id', 'user_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Convert UUID objects to strings"""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
 
 class QueueStats(BaseModel):
@@ -63,3 +80,11 @@ class WebhookPayload(BaseModel):
     ocr_text: Optional[str] = None
     error_message: Optional[str] = None
     secret: str
+
+    @field_validator('document_id', 'queue_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Convert UUID objects to strings"""
+        if isinstance(v, UUID):
+            return str(v)
+        return v

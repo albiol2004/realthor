@@ -6,6 +6,7 @@ import type {
   EntityType,
 } from '@/types/crm'
 import { TRPCError } from '@trpc/server'
+import { createClient } from '@/lib/supabase/server'
 
 /**
  * Documents Service
@@ -114,10 +115,30 @@ export class DocumentsService {
       })
     }
 
-    // TODO: Delete actual file from Supabase Storage
-    // const storage = ServiceProvider.storage
-    // await storage.deleteFile(existing.fileUrl)
+    // Delete file from Supabase Storage
+    // Extract storage path from file URL (format: userId/filename)
+    try {
+      const supabase = await createClient()
+      const urlParts = existing.fileUrl.split('/documents/')
+      if (urlParts.length > 1) {
+        // Get the path after '/documents/' (e.g., "userId/filename.pdf")
+        const storagePath = urlParts[1].split('?')[0] // Remove query params
 
+        const { error: storageError } = await supabase.storage
+          .from('documents')
+          .remove([storagePath])
+
+        if (storageError) {
+          console.error('Failed to delete storage file:', storageError)
+          // Don't throw - still delete DB record even if storage fails
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting storage file:', error)
+      // Don't throw - still delete DB record even if storage fails
+    }
+
+    // Delete database record (cascades to embeddings and queue entries)
     await documentsRepository.delete(userId, documentId)
   }
 }

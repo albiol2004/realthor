@@ -20,8 +20,9 @@ class Database:
                 min_size=1,
                 max_size=5,
                 command_timeout=60,
+                statement_cache_size=0,  # Disable for Supabase pgbouncer compatibility
             )
-            logger.info("✅ Database connection pool created")
+            logger.info("✅ Database connection pool created (statement caching disabled for pgbouncer)")
         except Exception as e:
             logger.error(f"❌ Failed to connect to database: {e}")
             raise
@@ -100,6 +101,10 @@ class Database:
 
                     # Insert embeddings
                     for emb in embeddings:
+                        # Convert embedding list to string format for pgvector
+                        # pgvector expects format: "[1.0, 2.0, 3.0]"
+                        embedding_str = str(emb["embedding"])
+
                         await conn.execute(
                             """
                             INSERT INTO document_embeddings (
@@ -121,7 +126,7 @@ class Database:
                             """,
                             emb["document_id"],
                             emb["user_id"],
-                            emb["embedding"],
+                            embedding_str,
                             emb["content_hash"],
                             emb["chunk_index"],
                             emb["chunk_text"],

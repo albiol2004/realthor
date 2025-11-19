@@ -8,7 +8,7 @@ Type=simple
 User=ocruser
 Group=ocruser
 WorkingDirectory=/opt/kairo/vps-ocr-service
-Environment="PATH=/opt/kairo/vps-ocr-service/venv/bin"
+Environment="PATH=/opt/kairo/vps-ocr-service/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # Pydantic reads .env directly from WorkingDirectory
 
 # Main command

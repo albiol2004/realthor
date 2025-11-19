@@ -13,7 +13,9 @@
       "Bash(ls:*)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(chmod:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(pnpm add:*)",
+      "Bash(cat:*)"
     ]
   },
   "outputStyle": "default"

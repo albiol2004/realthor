@@ -66,7 +66,10 @@ export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialo
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || "Upload failed")
+        const errorMessage = error.details
+          ? `${error.error}: ${error.details}`
+          : error.error || "Upload failed"
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()

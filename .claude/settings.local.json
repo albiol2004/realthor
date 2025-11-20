@@ -15,7 +15,8 @@
       "Bash(chmod:*)",
       "Bash(tree:*)",
       "Bash(pnpm add:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx supabase:*)"
     ]
   },
   "outputStyle": "default"

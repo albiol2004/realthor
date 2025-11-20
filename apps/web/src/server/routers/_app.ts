@@ -5,6 +5,7 @@ import { paymentRouter } from './payment'
 import { contactsRouter } from './contacts'
 import { propertiesRouter } from './properties'
 import { documentsRouter } from './documents'
+import { dealsRouter } from './deals'
 import { searchRouter } from './search'
 
 /**
@@ -24,9 +25,9 @@ export const appRouter = router({
   contacts: contactsRouter,
   properties: propertiesRouter,
   documents: documentsRouter,
+  deals: dealsRouter, // ✅ Deal management
   search: searchRouter, // ✅ Semantic document search
   // Phase 2+: Add more routers
-  // deals: dealsRouter,
   // messaging: messagingRouter,
   // ai: aiRouter,
 })

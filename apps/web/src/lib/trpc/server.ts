@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import { type Context } from './context'
 import { hasActiveAccess } from '@/types/subscription'
+import superjson from 'superjson'
 
 /**
  * tRPC Server Setup
@@ -8,6 +9,7 @@ import { hasActiveAccess } from '@/types/subscription'
  * Initializes tRPC with context
  */
 const t = initTRPC.context<Context>().create({
+  transformer: superjson,
   errorFormatter({ shape }) {
     return shape
   },

@@ -244,6 +244,9 @@ export interface PropertiesFilterParams {
 export type DealStage =
   | 'lead'
   | 'qualified'
+  | 'qualification'
+  | 'meeting'
+  | 'proposal'
   | 'showing'
   | 'offer'
   | 'negotiation'
@@ -265,6 +268,40 @@ export interface Deal {
   notes?: string
   createdAt: Date
   updatedAt: Date
+}
+
+// For creating deals
+export interface CreateDealInput {
+  contactId: string
+  propertyId?: string
+  title: string
+  value?: number
+  stage?: DealStage
+  probability?: number
+  expectedCloseDate?: Date
+  notes?: string
+}
+
+// For updating deals
+export interface UpdateDealInput {
+  id: string
+  title?: string
+  value?: number
+  stage?: DealStage
+  probability?: number
+  expectedCloseDate?: Date
+  actualCloseDate?: Date
+  notes?: string
+}
+
+// For filtering deals
+export interface DealsFilterParams {
+  contactId?: string
+  propertyId?: string
+  stage?: DealStage
+  search?: string
+  limit?: number
+  offset?: number
 }
 
 // ============================================================================

@@ -28,12 +28,17 @@ function getBaseUrl() {
  *
  * Wraps the app with tRPC and React Query providers
  */
+import superjson from 'superjson'
+
+// ... imports
+
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
         httpBatchLink({
+          transformer: superjson,
           url: `${getBaseUrl()}/api/trpc`,
           // You can pass any HTTP headers you wish here
           async headers() {

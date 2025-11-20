@@ -26,12 +26,14 @@ import {
   FileText,
   Home,
   Activity,
+  Briefcase,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ContactPropertiesTab } from './contact-properties-tab'
 import { ContactOverviewTab } from './contact-overview-tab'
 import { ContactDocumentsTab } from './contact-documents-tab'
+import { ContactDealsTab } from './contact-deals-tab'
 
 interface ContactDetailProps {
   contact: Contact
@@ -169,6 +171,10 @@ export function ContactDetail({ contact, onEdit, onDelete, onClose, isDeleting }
           <TabsTrigger value="documents" className="rounded-none border-b-2 data-[state=active]:border-black dark:data-[state=active]:border-white">
             <FileText className="h-4 w-4 mr-2" />
             Documents
+          </TabsTrigger>
+          <TabsTrigger value="deals" className="rounded-none border-b-2 data-[state=active]:border-black dark:data-[state=active]:border-white">
+            <Briefcase className="h-4 w-4 mr-2" />
+            Deals
           </TabsTrigger>
         </TabsList>
 
@@ -330,6 +336,11 @@ export function ContactDetail({ contact, onEdit, onDelete, onClose, isDeleting }
         {/* Documents Tab */}
         <TabsContent value="documents" className="flex-1 m-0">
           <ContactDocumentsTab contactId={contact.id} />
+        </TabsContent>
+
+        {/* Deals Tab */}
+        <TabsContent value="deals" className="flex-1 m-0">
+          <ContactDealsTab contactId={contact.id} />
         </TabsContent>
       </Tabs>
     </div>

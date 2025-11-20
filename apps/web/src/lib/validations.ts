@@ -284,3 +284,52 @@ export const documentSearchSchema = z.object({
   limit: z.number().int().positive().max(1000).default(50),
   offset: z.number().int().nonnegative().default(0),
 })
+
+// ============================================================================
+// Deal Schemas
+// ============================================================================
+
+export const dealStageSchema = z.enum([
+  'lead',
+  'qualified',
+  'qualification',
+  'meeting',
+  'proposal',
+  'showing',
+  'offer',
+  'negotiation',
+  'under_contract',
+  'closed_won',
+  'closed_lost',
+])
+
+export const createDealSchema = z.object({
+  contactId: z.string().uuid(),
+  propertyId: z.string().uuid().optional(),
+  title: z.string().min(1).max(200),
+  value: z.number().nonnegative().max(999999999).optional(),
+  stage: dealStageSchema.default('lead'),
+  probability: z.number().int().min(0).max(100).optional(),
+  expectedCloseDate: z.date().optional(),
+  notes: z.string().max(10000).optional(),
+})
+
+export const updateDealSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().min(1).max(200).optional(),
+  value: z.number().nonnegative().max(999999999).optional(),
+  stage: dealStageSchema.optional(),
+  probability: z.number().int().min(0).max(100).optional(),
+  expectedCloseDate: z.date().optional(),
+  actualCloseDate: z.date().optional(),
+  notes: z.string().max(10000).optional(),
+})
+
+export const dealsFilterSchema = z.object({
+  contactId: z.string().uuid().optional(),
+  propertyId: z.string().uuid().optional(),
+  stage: dealStageSchema.optional(),
+  search: z.string().optional(),
+  limit: z.number().int().positive().max(100).default(50),
+  offset: z.number().int().nonnegative().default(0),
+})

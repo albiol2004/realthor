@@ -127,10 +127,61 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const [propertySearch, setPropertySearch] = useState("")
   const [selectedContacts, setSelectedContacts] = useState<Array<{ id: string; firstName: string; lastName: string; email?: string }>>([])
   const [selectedProperties, setSelectedProperties] = useState<Array<{ id: string; title: string; address?: string }>>([])
+  const [contactsLoaded, setContactsLoaded] = useState(false)
+  const [propertiesLoaded, setPropertiesLoaded] = useState(false)
 
   // Popover states
   const [contactOpen, setContactOpen] = useState(false)
   const [propertyOpen, setPropertyOpen] = useState(false)
+
+  // Fetch contact details for relatedContactIds
+  const { data: relatedContacts } = trpc.contacts.list.useQuery(
+    { limit: 100 }, // Get enough to find all related contacts
+    { enabled: !contactsLoaded && document.relatedContactIds.length > 0 }
+  )
+
+  // Fetch property details for relatedPropertyIds
+  const { data: relatedProperties } = trpc.properties.list.useQuery(
+    { limit: 100 }, // Get enough to find all related properties
+    { enabled: !propertiesLoaded && document.relatedPropertyIds.length > 0 }
+  )
+
+  // Initialize selectedContacts from document.relatedContactIds
+  useEffect(() => {
+    if (relatedContacts && document.relatedContactIds.length > 0 && !contactsLoaded) {
+      const matchedContacts = relatedContacts.contacts
+        .filter(c => document.relatedContactIds.includes(c.id))
+        .map(c => ({
+          id: c.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+          email: c.email,
+        }))
+      setSelectedContacts(matchedContacts)
+      setContactsLoaded(true)
+    } else if (document.relatedContactIds.length === 0 && !contactsLoaded) {
+      setSelectedContacts([])
+      setContactsLoaded(true)
+    }
+  }, [relatedContacts, document.relatedContactIds, contactsLoaded])
+
+  // Initialize selectedProperties from document.relatedPropertyIds
+  useEffect(() => {
+    if (relatedProperties && document.relatedPropertyIds.length > 0 && !propertiesLoaded) {
+      const matchedProperties = relatedProperties.properties
+        .filter(p => document.relatedPropertyIds.includes(p.id))
+        .map(p => ({
+          id: p.id,
+          title: p.title,
+          address: p.address,
+        }))
+      setSelectedProperties(matchedProperties)
+      setPropertiesLoaded(true)
+    } else if (document.relatedPropertyIds.length === 0 && !propertiesLoaded) {
+      setSelectedProperties([])
+      setPropertiesLoaded(true)
+    }
+  }, [relatedProperties, document.relatedPropertyIds, propertiesLoaded])
 
   // Update mutation
   const updateMutation = trpc.documents.update.useMutation({
@@ -305,9 +356,9 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
               <FileText className="h-4 w-4" />
               Viewer
             </TabsTrigger>
-            <TabsTrigger value="metadata" className="gap-2">
+            <TabsTrigger value="details" className="gap-2">
               <Edit className="h-4 w-4" />
-              Metadata
+              Details
             </TabsTrigger>
             <TabsTrigger value="ocr" className="gap-2">
               <FileText className="h-4 w-4" />
@@ -346,8 +397,8 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
             )}
           </TabsContent>
 
-          {/* Metadata Tab */}
-          <TabsContent value="metadata" className="p-4 m-0">
+          {/* Details Tab */}
+          <TabsContent value="details" className="p-4 m-0">
             <div className="space-y-6 max-w-3xl">
               <div className="space-y-6">
                 {/* Document Type - Comprehensive Spanish Types */}
@@ -696,7 +747,7 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
                       Guardando...
                     </>
                   ) : (
-                    <>Guardar Metadatos</>
+                    <>Guardar Detalles</>
                   )}
                 </Button>
               </div>

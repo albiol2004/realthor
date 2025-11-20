@@ -13,6 +13,7 @@ import type {
 export class DocumentsRepository {
   /**
    * Get all documents for a specific entity
+   * Checks BOTH old pattern (entity_type/entity_id) AND new pattern (related_contact_ids/related_property_ids arrays)
    */
   async listByEntity(
     userId: string,
@@ -21,13 +22,33 @@ export class DocumentsRepository {
   ): Promise<Document[]> {
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    // Build query to check both patterns:
+    // 1. Old pattern: entity_type = 'contact' AND entity_id = contactId
+    // 2. New pattern: contactId IN related_contact_ids array
+    let query = supabase
       .from('documents')
       .select('*')
       .eq('user_id', userId)
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .order('created_at', { ascending: false })
+
+    // Check based on entity type
+    if (entityType === 'contact') {
+      // Match documents where:
+      // - Old pattern: entity_type = 'contact' AND entity_id = contactId
+      // - New pattern: contactId is in related_contact_ids array
+      query = query.or(`and(entity_type.eq.contact,entity_id.eq.${entityId}),related_contact_ids.cs.{${entityId}}`)
+    } else if (entityType === 'property') {
+      // Match documents where:
+      // - Old pattern: entity_type = 'property' AND entity_id = propertyId
+      // - New pattern: propertyId is in related_property_ids array
+      query = query.or(`and(entity_type.eq.property,entity_id.eq.${entityId}),related_property_ids.cs.{${entityId}}`)
+    } else if (entityType === 'deal') {
+      // For deals, only use old pattern (no array relationship yet)
+      query = query.eq('entity_type', entityType).eq('entity_id', entityId)
+    }
+
+    query = query.order('created_at', { ascending: false })
+
+    const { data, error } = await query
 
     if (error) {
       console.error('[DocumentsRepository] Error listing documents:', error)

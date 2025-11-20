@@ -15,9 +15,11 @@ import type { DocumentType } from "@/types/crm"
 interface DocumentUploadDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  contactId?: string // Auto-link to contact if provided
+  propertyId?: string // Auto-link to property if provided
 }
 
-export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialogProps) {
+export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId }: DocumentUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [category, setCategory] = useState<DocumentType>("otro")
   const [isUploading, setIsUploading] = useState(false)
@@ -58,6 +60,15 @@ export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialo
       formData.append("file", file)
       formData.append("category", category)
 
+      // Add entity linking if provided
+      if (contactId) {
+        formData.append("entityType", "contact")
+        formData.append("entityId", contactId)
+      } else if (propertyId) {
+        formData.append("entityType", "property")
+        formData.append("entityId", propertyId)
+      }
+
       // Upload to API route
       const response = await fetch("/api/upload/document", {
         method: "POST",
@@ -78,8 +89,15 @@ export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialo
         description: "OCR processing will begin shortly",
       })
 
-      // Invalidate documents query to refresh list
+      // Invalidate documents queries to refresh list
       await utils.documents.listAll.invalidate()
+
+      // Also invalidate entity-specific query if linked to contact/property
+      if (contactId) {
+        await utils.documents.listByEntity.invalidate({ entityType: 'contact', entityId: contactId })
+      } else if (propertyId) {
+        await utils.documents.listByEntity.invalidate({ entityType: 'property', entityId: propertyId })
+      }
 
       // Close dialog and reset
       handleClose()
@@ -104,7 +122,9 @@ export function DocumentUploadDialog({ open, onOpenChange }: DocumentUploadDialo
         <DialogHeader>
           <DialogTitle>Upload Document</DialogTitle>
           <DialogDescription>
-            Upload a PDF or image file for OCR processing and AI analysis
+            {contactId || propertyId
+              ? 'Upload a PDF or image file. This document will be automatically linked to this ' + (contactId ? 'contact' : 'property') + '.'
+              : 'Upload a PDF or image file for OCR processing and AI analysis'}
           </DialogDescription>
         </DialogHeader>
 

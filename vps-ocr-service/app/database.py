@@ -76,62 +76,25 @@ class Database:
             raise
 
     @classmethod
-    async def save_ocr_result(
-        cls, document_id: str, ocr_text: str, embeddings: List[Dict[str, Any]]
-    ):
-        """Save OCR text and embeddings to database"""
+    async def save_ocr_result(cls, document_id: str, ocr_text: str):
+        """Save OCR text to database (embeddings removed)"""
         if not cls._pool:
             raise RuntimeError("Database not connected")
 
         try:
             async with cls._pool.acquire() as conn:
-                async with conn.transaction():
-                    # Update document with OCR text
-                    await conn.execute(
-                        """
-                        UPDATE documents
-                        SET ocr_text = $1,
-                            ocr_status = 'completed',
-                            ocr_processed_at = NOW()
-                        WHERE id = $2
-                        """,
-                        ocr_text,
-                        document_id,
-                    )
-
-                    # Insert embeddings
-                    for emb in embeddings:
-                        # Convert embedding list to string format for pgvector
-                        # pgvector expects format: "[1.0, 2.0, 3.0]"
-                        embedding_str = str(emb["embedding"])
-
-                        await conn.execute(
-                            """
-                            INSERT INTO document_embeddings (
-                                document_id,
-                                user_id,
-                                embedding,
-                                content_hash,
-                                chunk_index,
-                                chunk_text,
-                                chunk_length
-                            )
-                            VALUES ($1, $2, $3::vector, $4, $5, $6, $7)
-                            ON CONFLICT (document_id, chunk_index) DO UPDATE
-                            SET embedding = EXCLUDED.embedding,
-                                content_hash = EXCLUDED.content_hash,
-                                chunk_text = EXCLUDED.chunk_text,
-                                chunk_length = EXCLUDED.chunk_length,
-                                updated_at = NOW()
-                            """,
-                            emb["document_id"],
-                            emb["user_id"],
-                            embedding_str,
-                            emb["content_hash"],
-                            emb["chunk_index"],
-                            emb["chunk_text"],
-                            emb["chunk_length"],
-                        )
+                # Update document with OCR text
+                await conn.execute(
+                    """
+                    UPDATE documents
+                    SET ocr_text = $1,
+                        ocr_status = 'completed',
+                        ocr_processed_at = NOW()
+                    WHERE id = $2
+                    """,
+                    ocr_text,
+                    document_id,
+                )
 
             logger.info(f"✅ Saved OCR result for document {document_id}")
 

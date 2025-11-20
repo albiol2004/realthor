@@ -13,7 +13,7 @@ import sys
 from app.config import settings
 from app.database import Database
 from app.ocr_worker import OCRWorker
-from app.embeddings_worker import EmbeddingsWorker
+# Embeddings worker removed - no longer needed
 from app.job_poller import JobPoller
 from app.models import HealthResponse, QueueStats
 from app import __version__
@@ -37,7 +37,6 @@ if settings.log_file:
 
 # Global instances
 ocr_worker: OCRWorker = None
-embeddings_worker: EmbeddingsWorker = None
 job_poller: JobPoller = None
 
 
@@ -47,7 +46,7 @@ async def lifespan(app: FastAPI):
     Startup and shutdown events
 
     Startup:
-    - Load ML models (OCR + Embeddings)
+    - Load ML models (OCR only)
     - Connect to database
     - Start job poller
 
@@ -55,7 +54,7 @@ async def lifespan(app: FastAPI):
     - Stop job poller
     - Close database connections
     """
-    global ocr_worker, embeddings_worker, job_poller
+    global ocr_worker, job_poller
 
     logger.info("=" * 60)
     logger.info(f"🚀 Starting Kairo VPS OCR Service v{__version__}")
@@ -67,20 +66,16 @@ async def lifespan(app: FastAPI):
 
     try:
         # Step 1: Connect to database
-        logger.info("[1/4] Connecting to database...")
+        logger.info("[1/3] Connecting to database...")
         await Database.connect()
 
         # Step 2: Load OCR models
-        logger.info("[2/4] Loading OCR models (PaddleOCR)...")
+        logger.info("[2/3] Loading OCR models (PaddleOCR)...")
         ocr_worker = OCRWorker()
 
-        # Step 3: Load embeddings models
-        logger.info("[3/4] Loading embeddings models (sentence-transformers)...")
-        embeddings_worker = EmbeddingsWorker()
-
-        # Step 4: Start job poller
-        logger.info("[4/4] Starting job poller...")
-        job_poller = JobPoller(ocr_worker, embeddings_worker)
+        # Step 3: Start job poller (embeddings removed)
+        logger.info("[3/3] Starting job poller...")
+        job_poller = JobPoller(ocr_worker)
         await job_poller.start()
 
         logger.info("=" * 60)
@@ -109,7 +104,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Kairo VPS OCR Service",
-    description="Document OCR processing with semantic embeddings for Kairo CRM",
+    description="Document OCR processing for Kairo CRM (embeddings removed)",
     version=__version__,
     lifespan=lifespan,
 )
@@ -137,7 +132,7 @@ async def health_check():
 
     return HealthResponse(
         status="ok",
-        models_loaded=ocr_worker is not None and embeddings_worker is not None,
+        models_loaded=ocr_worker is not None,
         queue_size=queue_stats["queued"],
         vps_instance_id=settings.vps_instance_id,
         version=__version__,
@@ -179,21 +174,14 @@ async def test_ocr():
 @app.get("/api/test/embeddings", response_model=dict)
 async def test_embeddings():
     """
-    Test embeddings functionality
+    Embeddings functionality has been removed
 
-    Returns info about loaded embeddings model
+    This endpoint is kept for backward compatibility but returns a deprecation notice
     """
-    if not embeddings_worker:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Embeddings worker not initialized"},
-        )
-
     return {
-        "embeddings_loaded": True,
-        "model": settings.embeddings_model,
-        "device": settings.embeddings_device,
-        "dimensions": 384,  # multilingual-MiniLM output size
+        "embeddings_loaded": False,
+        "deprecated": True,
+        "message": "Embeddings functionality has been removed from this service. Only OCR is now performed.",
     }
 
 

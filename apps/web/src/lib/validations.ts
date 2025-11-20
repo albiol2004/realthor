@@ -6,6 +6,15 @@ import { z } from 'zod'
 
 export const contactStatusSchema = z.enum(['lead', 'client', 'past_client'])
 
+export const contactCategorySchema = z.enum([
+  'potential_buyer',
+  'potential_seller',
+  'signed_buyer',
+  'signed_seller',
+  'potential_lender',
+  'potential_tenant',
+])
+
 export const contactSourceSchema = z.enum([
   'referral',
   'website',
@@ -42,6 +51,7 @@ export const createContactSchema = z.object({
   addressCountry: z.string().max(100).optional(),
 
   status: contactStatusSchema.default('lead'),
+  category: contactCategorySchema.optional(),
   source: contactSourceSchema.optional(),
   tags: z.array(z.string()).default([]),
 
@@ -61,6 +71,7 @@ export const updateContactSchema = createContactSchema.partial().extend({
 export const contactsFilterSchema = z.object({
   search: z.string().optional(),
   status: z.array(contactStatusSchema).optional(),
+  category: z.array(contactCategorySchema).optional(),
   source: z.array(contactSourceSchema).optional(),
   tags: z.array(z.string()).optional(),
   budgetMin: z.number().positive().optional(),

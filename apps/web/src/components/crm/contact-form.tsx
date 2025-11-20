@@ -74,6 +74,7 @@ export function ContactForm({
             addressZip: initialData.addressZip || '',
             addressCountry: initialData.addressCountry || 'US',
             status: initialData.status,
+            category: initialData.category,
             source: initialData.source,
             tags: initialData.tags,
             budgetMin: initialData.budgetMin,
@@ -325,25 +326,26 @@ export function ContactForm({
 
                     <FormField
                       control={form.control}
-                      name="source"
+                      name="category"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Source</FormLabel>
+                          <FormLabel>Category</FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             defaultValue={field.value || undefined}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select source" />
+                                <SelectValue placeholder="Select category" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="referral">Referral</SelectItem>
-                              <SelectItem value="website">Website</SelectItem>
-                              <SelectItem value="social_media">Social Media</SelectItem>
-                              <SelectItem value="cold_call">Cold Call</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
+                              <SelectItem value="potential_buyer">Potential Buyer</SelectItem>
+                              <SelectItem value="potential_seller">Potential Seller</SelectItem>
+                              <SelectItem value="signed_buyer">Signed Buyer</SelectItem>
+                              <SelectItem value="signed_seller">Signed Seller</SelectItem>
+                              <SelectItem value="potential_lender">Potential Lender</SelectItem>
+                              <SelectItem value="potential_tenant">Potential Tenant</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -351,6 +353,34 @@ export function ContactForm({
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Source</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value || undefined}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select source" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="referral">Referral</SelectItem>
+                            <SelectItem value="website">Website</SelectItem>
+                            <SelectItem value="social_media">Social Media</SelectItem>
+                            <SelectItem value="cold_call">Cold Call</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 {/* Budget */}

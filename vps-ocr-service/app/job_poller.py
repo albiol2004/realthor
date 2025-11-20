@@ -6,7 +6,7 @@ from loguru import logger
 from app.config import settings
 from app.database import Database
 from app.ocr_worker import OCRWorker
-from app.embeddings_worker import EmbeddingsWorker
+# Embeddings removed - no longer needed
 from app.webhook import WebhookNotifier
 from app.models import OCRJob
 
@@ -19,11 +19,8 @@ class JobPoller:
     and processes them using OCR and Embeddings workers
     """
 
-    def __init__(
-        self, ocr_worker: OCRWorker, embeddings_worker: EmbeddingsWorker
-    ):
+    def __init__(self, ocr_worker: OCRWorker):
         self.ocr_worker = ocr_worker
-        self.embeddings_worker = embeddings_worker
         self.webhook = WebhookNotifier()
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
@@ -102,16 +99,15 @@ class JobPoller:
 
         Steps:
         1. Extract text with OCR
-        2. Generate embeddings
-        3. Save to database
-        4. Update queue status
-        5. Send webhook notification (optional)
+        2. Save to database
+        3. Update queue status
+        4. Send webhook notification (optional)
         """
         logger.info(f"📄 Processing job: {job.document_id}")
 
         try:
             # Step 1: OCR processing
-            logger.info(f"[1/4] Running OCR on {job.file_type} file")
+            logger.info(f"[1/2] Running OCR on {job.file_type} file")
             ocr_result = await self.ocr_worker.process(job.file_url, job.file_type)
 
             if not ocr_result.text or not ocr_result.text.strip():
@@ -121,54 +117,22 @@ class JobPoller:
                 f"✅ Extracted {len(ocr_result.text)} characters in {ocr_result.processing_time_seconds:.1f}s"
             )
 
-            # Step 2: Get user_id for embeddings
-            logger.info(f"[2/4] Getting user context")
-            user_id = await Database.get_document_user_id(job.document_id)
-
-            if not user_id:
-                raise Exception("Document not found or user_id is null")
-
-            # Step 3: Generate embeddings
-            logger.info(f"[3/4] Generating embeddings")
-            embedding_chunks = await self.embeddings_worker.generate(
-                document_id=job.document_id,
-                user_id=user_id,
-                text=ocr_result.text,
-            )
-
-            logger.info(f"✅ Generated {len(embedding_chunks)} embedding chunks")
-
-            # Step 4: Save to database
-            logger.info(f"[4/4] Saving results to database")
-
-            # Convert EmbeddingChunk objects to dicts for database
-            embeddings_data = [
-                {
-                    "document_id": emb.document_id,
-                    "user_id": emb.user_id,
-                    "chunk_index": emb.chunk_index,
-                    "chunk_text": emb.chunk_text,
-                    "chunk_length": emb.chunk_length,
-                    "embedding": emb.embedding,
-                    "content_hash": emb.content_hash,
-                }
-                for emb in embedding_chunks
-            ]
+            # Step 2: Save to database
+            logger.info(f"[2/2] Saving OCR text to database")
 
             await Database.save_ocr_result(
                 document_id=job.document_id,
                 ocr_text=ocr_result.text,
-                embeddings=embeddings_data,
             )
 
-            # Step 5: Update queue status to completed
+            # Step 3: Update queue status to completed
             await Database.update_ocr_job_status(
                 queue_id=job.queue_id, status="completed"
             )
 
             logger.info(f"✅ Job completed: {job.document_id}")
 
-            # Step 6: Send webhook notification (optional)
+            # Step 4: Send webhook notification (optional)
             if self.webhook.enabled:
                 await self.webhook.notify_success(
                     document_id=job.document_id,

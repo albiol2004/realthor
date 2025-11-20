@@ -26,24 +26,28 @@ import {
   FileText,
   Home,
   Activity,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ContactPropertiesTab } from './contact-properties-tab'
+import { ContactOverviewTab } from './contact-overview-tab'
+import { ContactDocumentsTab } from './contact-documents-tab'
 
 interface ContactDetailProps {
   contact: Contact
   onEdit: () => void
   onDelete: () => void
+  onClose: () => void
   isDeleting?: boolean
 }
 
 /**
  * Contact Detail Component
  * Right panel showing full contact info with tabs
- * Default tab: Activity Timeline
+ * Default tab: Overview
  */
-export function ContactDetail({ contact, onEdit, onDelete, isDeleting }: ContactDetailProps) {
-  const [activeTab, setActiveTab] = useState('activity')
+export function ContactDetail({ contact, onEdit, onDelete, onClose, isDeleting }: ContactDetailProps) {
+  const [activeTab, setActiveTab] = useState('overview')
   const statusColors = getContactStatusColor(contact.status)
   const budget = formatContactBudget(contact)
 
@@ -51,6 +55,18 @@ export function ContactDetail({ contact, onEdit, onDelete, isDeleting }: Contact
     <div className="h-full flex flex-col bg-white dark:bg-black">
       {/* Header */}
       <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+        {/* Close Button */}
+        <div className="flex justify-end mb-2">
+          <Button
+            onClick={onClose}
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
         <div className="flex items-start gap-4">
           {/* Avatar */}
           <Avatar className="h-16 w-16 flex-shrink-0">
@@ -130,9 +146,9 @@ export function ContactDetail({ contact, onEdit, onDelete, isDeleting }: Contact
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="w-full justify-start border-b border-gray-200 dark:border-gray-800 rounded-none bg-transparent p-0 h-auto">
-          <TabsTrigger value="activity" className="rounded-none border-b-2 data-[state=active]:border-black dark:data-[state=active]:border-white">
+          <TabsTrigger value="overview" className="rounded-none border-b-2 data-[state=active]:border-black dark:data-[state=active]:border-white">
             <Activity className="h-4 w-4 mr-2" />
-            Activity
+            Overview
           </TabsTrigger>
           <TabsTrigger value="info" className="rounded-none border-b-2 data-[state=active]:border-black dark:data-[state=active]:border-white">
             <FileText className="h-4 w-4 mr-2" />
@@ -156,20 +172,9 @@ export function ContactDetail({ contact, onEdit, onDelete, isDeleting }: Contact
           </TabsTrigger>
         </TabsList>
 
-        {/* Activity Tab (Default) */}
-        <TabsContent value="activity" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
-                Recent Activity
-              </h3>
-              <div className="text-center py-12 text-gray-500 dark:text-gray-500">
-                <Activity className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No activity yet</p>
-                <p className="text-sm mt-1">Activity timeline will appear here</p>
-              </div>
-            </div>
-          </ScrollArea>
+        {/* Overview Tab (Default) */}
+        <TabsContent value="overview" className="flex-1 m-0">
+          <ContactOverviewTab contact={contact} onTabChange={setActiveTab} />
         </TabsContent>
 
         {/* Contact Info Tab */}
@@ -324,16 +329,7 @@ export function ContactDetail({ contact, onEdit, onDelete, isDeleting }: Contact
 
         {/* Documents Tab */}
         <TabsContent value="documents" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Documents</h3>
-              <div className="text-center py-12 text-gray-500 dark:text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No documents yet</p>
-                <p className="text-sm mt-1">Documents will appear here</p>
-              </div>
-            </div>
-          </ScrollArea>
+          <ContactDocumentsTab contactId={contact.id} />
         </TabsContent>
       </Tabs>
     </div>

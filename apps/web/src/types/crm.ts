@@ -8,6 +8,14 @@
 
 export type ContactStatus = 'lead' | 'client' | 'past_client'
 
+export type ContactCategory =
+  | 'potential_buyer'
+  | 'potential_seller'
+  | 'signed_buyer'
+  | 'signed_seller'
+  | 'potential_lender'
+  | 'potential_tenant'
+
 export type ContactSource =
   | 'referral'
   | 'website'
@@ -41,6 +49,7 @@ export interface Contact {
 
   // CRM Fields
   status: ContactStatus
+  category?: ContactCategory
   source?: ContactSource
   tags: string[]
 
@@ -90,6 +99,7 @@ export interface CreateContactInput {
   addressZip?: string
   addressCountry?: string
   status?: ContactStatus
+  category?: ContactCategory
   source?: ContactSource
   tags?: string[]
   budgetMin?: number
@@ -115,6 +125,7 @@ export interface QuickCreateContactInput {
 export interface ContactsFilterParams {
   search?: string // Search in name, email, phone, company
   status?: ContactStatus[]
+  category?: ContactCategory[]
   source?: ContactSource[]
   tags?: string[]
   budgetMin?: number
@@ -581,6 +592,74 @@ export function getContactStatusLabel(status: ContactStatus): string {
       return 'Past Client'
     default:
       return status
+  }
+}
+
+export function getContactCategoryLabel(category: ContactCategory): string {
+  switch (category) {
+    case 'potential_buyer':
+      return 'Potential Buyer'
+    case 'potential_seller':
+      return 'Potential Seller'
+    case 'signed_buyer':
+      return 'Signed Buyer'
+    case 'signed_seller':
+      return 'Signed Seller'
+    case 'potential_lender':
+      return 'Potential Lender'
+    case 'potential_tenant':
+      return 'Potential Tenant'
+    default:
+      return category
+  }
+}
+
+export function getContactCategoryColor(
+  category: ContactCategory
+): { bg: string; text: string; border: string } {
+  switch (category) {
+    case 'potential_buyer':
+      return {
+        bg: 'bg-blue-50 dark:bg-blue-950/20',
+        text: 'text-blue-700 dark:text-blue-300',
+        border: 'border-blue-200 dark:border-blue-800',
+      }
+    case 'potential_seller':
+      return {
+        bg: 'bg-purple-50 dark:bg-purple-950/20',
+        text: 'text-purple-700 dark:text-purple-300',
+        border: 'border-purple-200 dark:border-purple-800',
+      }
+    case 'signed_buyer':
+      return {
+        bg: 'bg-green-50 dark:bg-green-950/20',
+        text: 'text-green-700 dark:text-green-300',
+        border: 'border-green-200 dark:border-green-800',
+      }
+    case 'signed_seller':
+      return {
+        bg: 'bg-emerald-50 dark:bg-emerald-950/20',
+        text: 'text-emerald-700 dark:text-emerald-300',
+        border: 'border-emerald-200 dark:border-emerald-800',
+      }
+    case 'potential_lender':
+      return {
+        bg: 'bg-orange-50 dark:bg-orange-950/20',
+        text: 'text-orange-700 dark:text-orange-300',
+        border: 'border-orange-200 dark:border-orange-800',
+      }
+    case 'potential_tenant':
+      return {
+        bg: 'bg-cyan-50 dark:bg-cyan-950/20',
+        text: 'text-cyan-700 dark:text-cyan-300',
+        border: 'border-cyan-200 dark:border-cyan-800',
+      }
+    default:
+      return {
+        bg: 'bg-gray-50 dark:bg-gray-950/20',
+        text: 'text-gray-700 dark:text-gray-300',
+        border: 'border-gray-200 dark:border-gray-800',
+      }
   }
 }
 

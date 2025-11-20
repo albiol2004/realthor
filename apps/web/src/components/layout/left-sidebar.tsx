@@ -11,6 +11,7 @@ import {
   FileText,
   Share2,
   UserCog,
+  Settings,
 } from 'lucide-react'
 
 /**
@@ -58,6 +59,12 @@ const navigationItems = [
     href: '/client-portal',
     icon: UserCog,
     description: 'Client Communication',
+  },
+  {
+    name: 'Account',
+    href: '/settings',
+    icon: Settings,
+    description: 'Settings & Subscription',
   },
 ]
 

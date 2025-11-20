@@ -22,10 +22,27 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get("file") as File
     const category = formData.get("category") as string || "other"
+    const entityType = formData.get("entityType") as string | null
+    const entityId = formData.get("entityId") as string | null
 
     if (!file) {
       return NextResponse.json(
         { error: "No file provided" },
+        { status: 400 }
+      )
+    }
+
+    // Validate entity linking if provided
+    if ((entityType && !entityId) || (!entityType && entityId)) {
+      return NextResponse.json(
+        { error: "Both entityType and entityId must be provided together" },
+        { status: 400 }
+      )
+    }
+
+    if (entityType && !['contact', 'property', 'deal'].includes(entityType)) {
+      return NextResponse.json(
+        { error: "Invalid entityType. Allowed: contact, property, deal" },
         { status: 400 }
       )
     }
@@ -100,17 +117,25 @@ export async function POST(request: NextRequest) {
 
     // Create document record
     // Using file_type (trigger automatically syncs to mime_type)
+    const documentData: any = {
+      user_id: user.id,
+      filename: file.name,
+      file_url: fileUrl,
+      file_size: file.size,
+      file_type: file.type,
+      category,
+      ocr_status: "pending",
+    }
+
+    // Add entity linking if provided
+    if (entityType && entityId) {
+      documentData.entity_type = entityType
+      documentData.entity_id = entityId
+    }
+
     const { data: document, error: documentError } = await supabase
       .from("documents")
-      .insert({
-        user_id: user.id,
-        filename: file.name,
-        file_url: fileUrl,
-        file_size: file.size,
-        file_type: file.type,
-        category,
-        ocr_status: "pending",
-      })
+      .insert(documentData)
       .select()
       .single()
 
@@ -127,22 +152,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Add to OCR queue
-    const { error: queueError } = await supabase
-      .from("ocr_queue")
-      .insert({
-        document_id: document.id,
-        user_id: user.id,
-        file_url: fileUrl,
-        file_type: file.type,
-        status: "queued",
-      })
-
-    if (queueError) {
-      console.error("Queue insert error:", queueError)
-      // Don't fail the upload, but log the error
-      // The document is still created, just won't be processed
-    }
+    // Note: OCR queue insertion is handled automatically by database trigger
+    // (see 20250118_document_intelligence.sql - document_auto_queue_trigger)
+    // No need to manually insert into ocr_queue here
 
     return NextResponse.json({
       success: true,

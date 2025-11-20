@@ -30,14 +30,33 @@ export class ContactsRepository {
 
     // Apply filters
     if (filters?.search) {
-      // Use full-text search for name, email, phone, company
-      query = query.or(
-        `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%,company.ilike.%${filters.search}%`
-      )
+      // Split search into words and search across fields
+      // This allows "Juan Juanito Juan" to match first_name=Juan and last_name=Juanito Juan
+      const searchTerms = filters.search.trim().split(/\s+/)
+
+      if (searchTerms.length === 1) {
+        // Single term: search in any field
+        const term = searchTerms[0]
+        query = query.or(
+          `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%,company.ilike.%${term}%`
+        )
+      } else {
+        // Multiple terms: search where first term matches first_name OR any term matches last_name/email/phone/company
+        const firstTerm = searchTerms[0]
+        const otherTerms = searchTerms.slice(1).join(' ')
+
+        query = query.or(
+          `first_name.ilike.%${firstTerm}%,last_name.ilike.%${otherTerms}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%,company.ilike.%${filters.search}%`
+        )
+      }
     }
 
     if (filters?.status && filters.status.length > 0) {
       query = query.in('status', filters.status)
+    }
+
+    if (filters?.category && filters.category.length > 0) {
+      query = query.in('category', filters.category)
     }
 
     if (filters?.source && filters.source.length > 0) {
@@ -174,6 +193,7 @@ export class ContactsRepository {
         address_zip: input.addressZip || null,
         address_country: input.addressCountry || 'US',
         status: input.status || 'lead',
+        category: input.category || null,
         source: input.source || null,
         tags: input.tags || [],
         budget_min: input.budgetMin || null,
@@ -219,6 +239,7 @@ export class ContactsRepository {
     if (input.addressCountry !== undefined)
       updateData.address_country = input.addressCountry || null
     if (input.status !== undefined) updateData.status = input.status
+    if (input.category !== undefined) updateData.category = input.category || null
     if (input.source !== undefined) updateData.source = input.source || null
     if (input.tags !== undefined) updateData.tags = input.tags
     if (input.budgetMin !== undefined)
@@ -364,6 +385,7 @@ export class ContactsRepository {
       addressZip: row.address_zip,
       addressCountry: row.address_country,
       status: row.status,
+      category: row.category,
       source: row.source,
       tags: row.tags || [],
       budgetMin: row.budget_min,

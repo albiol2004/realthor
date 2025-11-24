@@ -5,6 +5,526 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2025-01-21
+
+### Added - Deals Management, Contact Categories & Enhanced Document Relations (Phase 2 - Core CRM Continuation)
+
+#### Deals Management System
+
+**Complete deals pipeline implementation with 11-stage workflow**
+
+- **Database Schema:** New `deals` table (`supabase/migrations/20250121_deals.sql`)
+  - **Core Fields:**
+    - Identity: id (UUID), user_id (FK to users), contact_id (FK to contacts)
+    - Property: property_id (FK to properties, nullable)
+    - Deal info: title (required), value (numeric 12,2, currency amount)
+    - Pipeline: stage (11 stages), probability (0-100%)
+    - Dates: expected_close_date, actual_close_date
+    - Notes: text field for deal notes
+    - Audit: created_at, updated_at (with auto-update trigger)
+  - **11 Deal Stages:**
+    - Lead → Qualified → Qualification → Meeting → Proposal
+    - Showing → Offer → Negotiation → Under Contract
+    - Closed Won / Closed Lost
+  - **Performance Indexes:**
+    - Standard: user_id, contact_id, property_id, created_at DESC
+    - Pipeline: (stage, user_id) composite index
+    - Date: expected_close_date index
+  - **Row-Level Security:**
+    - Full CRUD policies (users can only access their own deals)
+    - Automatic updated_at trigger
+
+- **Type System:** Complete TypeScript definitions (`types/crm.ts`)
+  - `DealStage` - 11 pipeline stages enum
+  - `Deal` interface with all fields
+  - `CreateDealInput`, `UpdateDealInput` - Input types
+  - `DealsFilterParams` - Filtering and pagination
+  - Helper functions:
+    - `getDealStageLabel()` - Display labels for stages
+    - `getDealStageColor()` - Color coding for stage badges
+    - `formatDealValue()` - Currency formatting (EUR)
+
+- **Validation Schemas:** Zod validation (`lib/validations.ts`)
+  - `dealStageSchema` - All 11 stages validated
+  - `createDealSchema` - Full validation:
+    - title: max 200 chars, required
+    - value: non-negative, max €999,999,999
+    - stage: defaults to 'lead'
+    - probability: 0-100
+    - expectedCloseDate: date validation
+    - notes: max 10,000 chars
+  - `updateDealSchema` - Partial updates
+  - `dealsFilterSchema` - Filter by contact, property, stage, search
+
+- **Data Access Layer:** Deals repository (`server/repositories/deals.repository.ts`)
+  - **CRUD Operations:**
+    - `list()` - Advanced filtering (contact, property, stage, search)
+    - `findById()` - Get single deal
+    - `create()` - Create new deal
+    - `update()` - Partial update support
+    - `delete()` - Delete deal
+  - **Features:**
+    - Search by title (case-insensitive ILIKE)
+    - Filter by contactId, propertyId, stage
+    - Pagination (limit/offset, default 50)
+    - Ordered by created_at DESC
+  - Private `mapToDeal()` helper for row mapping
+
+- **Business Logic:** Deals service (`server/services/deals.service.ts`)
+  - Core operations: list, getById, create, update, delete
+  - **Validation Rules:**
+    - Title required and non-empty
+    - Value must be non-negative (if provided)
+    - Probability must be 0-100 (if provided)
+    - Existence checks before update/delete
+  - Error handling with TRPCError (NOT_FOUND, BAD_REQUEST)
+
+- **API Layer:** tRPC deals router (`server/routers/deals.ts`)
+  - All endpoints protected by `subscribedProcedure`
+  - **Endpoints:**
+    - `deals.list` - List with optional filters
+    - `deals.getById` - Get single deal
+    - `deals.create` - Create new deal
+    - `deals.update` - Update deal
+    - `deals.delete` - Delete deal
+  - Integrated into main app router
+
+- **UI Component:** Contact Deals Tab (`components/crm/contact-deals-tab.tsx`)
+  - Displays all deals linked to a contact
+  - **Features:**
+    - Deal cards showing: title, stage, value, probability, expected close date, notes
+    - Stage badges with color coding:
+      - Lead (gray), Qualification (blue), Meeting (indigo), Proposal (purple)
+      - Negotiation (orange), Under Contract (yellow)
+      - Closed Won (green), Closed Lost (red)
+    - Currency formatting: EUR with Intl.NumberFormat
+    - Create deal dialog with form:
+      - Title* (required)
+      - Value (€, number input with validation)
+      - Stage (dropdown with all 11 stages)
+      - Probability (0-100 slider/input)
+      - Notes (textarea)
+    - Delete functionality with confirmation dialog
+    - Empty state: "No deals yet" with "Create First Deal" button
+    - Footer with deal count
+  - Real-time updates via tRPC query invalidation
+  - Spanish UI text
+  - Dark mode support
+
+#### Contact Category System
+
+**6-category classification system for contact segmentation**
+
+- **Database Schema:** Contact category field (`supabase/migrations/20250120_add_contact_category.sql`)
+  - **New Column:** `category` (TEXT, nullable, optional)
+  - **6 Categories:**
+    - `potential_buyer` - Prospect looking to buy
+    - `potential_seller` - Prospect looking to sell
+    - `signed_buyer` - Client with signed purchase agreement
+    - `signed_seller` - Client with signed listing agreement
+    - `potential_lender` - Prospect seeking financing
+    - `potential_tenant` - Prospect looking to rent
+  - Check constraint to enforce valid values
+  - Index: `contacts_category_idx` for filtering performance
+  - Documented with comments
+
+- **Type System:** Contact category types (`types/crm.ts`)
+  - `ContactCategory` enum with 6 categories
+  - Helper functions:
+    - `getContactCategoryLabel()` - Display labels:
+      - "Potential Buyer", "Potential Seller", "Signed Buyer",
+      - "Signed Seller", "Potential Lender", "Potential Tenant"
+    - `getContactCategoryColor()` - Tailwind color classes:
+      - Buyer (blue), Seller (purple), Signed Buyer (green),
+      - Signed Seller (orange), Lender (yellow), Tenant (teal)
+
+- **Form Integration:** Enhanced contact form (`components/crm/contact-form.tsx`)
+  - **New Field in "CRM Details" section:**
+    - Category dropdown positioned next to Status field
+    - Select with 6 options (labels from getContactCategoryLabel)
+    - Optional field (nullable)
+    - Not included in quick create (only full form)
+  - Validation integrated with createContactSchema
+
+- **UI Integration:** Category-based contacts page (`app/(dashboard)/crm/page.tsx`)
+  - **Category Tabs:**
+    - Horizontal scrollable tabs below search bar
+    - Options: All, Potential Buyer, Potential Seller, Signed Buyer,
+              Signed Seller, Potential Lender, Potential Tenant
+    - Active state highlighting (purple accent)
+    - Auto-filtering contact list by selected category
+  - Integrated with contact list query
+  - Empty states per category
+
+#### Document Metadata & Enhanced Relations
+
+**Dual-pattern document linking: primary entity + N-to-N fuzzy relationships**
+
+- **Database Schema:** Document date fields & N-to-N relations (`supabase/migrations/20250119_document_metadata_fields.sql`)
+  - **New Columns:**
+    - `document_date` (DATE) - When document was created, signed, or issued
+    - `due_date` (DATE) - When document expires or action is due
+      - Examples: permit expiration, payment due date, contract renewal
+    - `related_contact_ids` (UUID[]) - Array of linked contact IDs
+    - `related_property_ids` (UUID[]) - Array of linked property IDs
+  - **New Indexes:**
+    - `documents_document_date_idx` (DESC) - Date-based queries
+    - `documents_due_date_idx` (ASC WHERE due_date IS NOT NULL) - Upcoming due dates
+    - `documents_related_contact_ids_idx` (GIN) - Array contains queries
+    - `documents_related_property_ids_idx` (GIN) - Array contains queries
+  - Comments documenting field purposes
+
+- **Dual Pattern Support:** Two relationship models in one table
+  - **Old Pattern (Primary Entity):**
+    - `entity_type` (contact/property/deal) + `entity_id` (single UUID)
+    - For documents with ONE primary owner
+    - Example: Contract belongs to one specific deal
+  - **New Pattern (N-to-N Fuzzy Relationships):**
+    - `related_contact_ids` (UUID[]) + `related_property_ids` (UUID[])
+    - For documents linked to MULTIPLE entities
+    - Example: Inspection report mentions 3 contacts and 2 properties
+  - **Benefits:**
+    - AI extraction can populate related arrays from OCR text analysis
+    - Documents discovered in semantic search can be auto-linked
+    - Flexible: Single document can appear in multiple entity views
+    - Backward compatible: Old single-entity pattern still works
+
+- **Repository Query Logic:** Unified queries (`server/repositories/documents.repository.ts`)
+  - `listByEntity(entityType, entityId)` checks BOTH patterns:
+    - Pattern 1: `entity_type = 'contact' AND entity_id = contactId`
+    - Pattern 2: `contactId IN related_contact_ids array`
+    - Uses OR query to match either pattern
+  - Documents returned if they match ANY relationship pattern
+  - Enables seamless migration from old to new pattern
+
+#### Contact Tabs Enhancement
+
+**New tabs for deals and documents in contact detail view**
+
+- **Contact Deals Tab:** (`components/crm/contact-deals-tab.tsx`)
+  - Shows all deals linked to contact (described in Deals section above)
+  - Positioned as new tab in contact detail
+  - Icon: Briefcase
+  - Full deal management: create, view, edit, delete
+
+- **Contact Documents Tab:** (`components/crm/contact-documents-tab.tsx`)
+  - Shows all documents linked to contact (both relationship patterns)
+  - **Features:**
+    - Header with "Upload Document" button
+    - Document list using DocumentCard component:
+      - Filename, file type, size, OCR status
+      - Click to select document
+      - Selection highlighting
+    - DocumentUploadDialog integration with auto-linking:
+      - Passes `contactId` prop to dialog
+      - Uploaded documents automatically set entity_type='contact', entity_id=contactId
+    - Empty state: "No documents yet" with "Upload First Document" button
+    - Footer with document count
+    - Real-time updates via query invalidation
+  - Icon: FileText
+  - Positioned between WhatsApp and old Documents tabs
+
+- **Document Upload Dialog Enhancement:** (`components/documents/document-upload-dialog.tsx`)
+  - **New Props:**
+    - `contactId?: string` - Auto-link to contact if provided
+    - `propertyId?: string` - Auto-link to property if provided
+  - **Auto-Linking Logic:**
+
+    ```typescript
+    if (contactId) {
+      formData.append("entityType", "contact")
+      formData.append("entityId", contactId)
+    } else if (propertyId) {
+      formData.append("entityType", "property")
+      formData.append("entityId", propertyId)
+    }
+    ```
+
+  - Invalidates entity-specific query after upload:
+
+    ```typescript
+    if (contactId) {
+      utils.documents.listByEntity.invalidate({
+        entityType: 'contact', entityId: contactId
+      })
+    }
+    ```
+
+#### Contact Overview Tab Redesign
+
+**New default tab with comprehensive contact summary**
+
+- **Component:** Contact Overview Tab (`components/crm/contact-overview-tab.tsx`)
+  - Replaces Activity tab as default first tab
+  - Icon: Activity (retained for consistency)
+  - **4 Main Sections:**
+
+  **1. Deals Summary (HandshakeIcon):**
+  - Shows placeholder: "No deals yet"
+  - "Deals will appear here when created"
+  - Empty state with Briefcase icon
+  - Future: Will show recent deals, pipeline status, total value
+
+  **2. Recent Conversations (MessageSquare icon):**
+  - Grid layout with 2 clickable cards:
+    - **Email card:**
+      - Blue Mail icon
+      - "No emails yet" state
+      - Click → switches to 'email' tab
+      - Hover effect with border
+    - **WhatsApp card:**
+      - Green MessageSquare icon
+      - "No messages yet" state
+      - Click → switches to 'whatsapp' tab
+      - Hover effect with border
+  - Future: Will show last message, unread count
+
+  **3. Compliance Score (FileCheck icon):**
+  - **Progress bar** showing document completion percentage
+    - Current: Shows 0% (placeholder)
+    - Uses Progress component
+  - **Score display:**
+    - Large number with color coding:
+      - Red (< 50%) - "No documents uploaded yet"
+      - Yellow (50-79%) - "More documents needed"
+      - Green (≥ 80%) - "Good progress" / "Excellent compliance"
+    - Text descriptions based on score
+  - **"View Documents" button** → switches to documents tab
+  - Clickable card → opens documents tab
+  - Future: Real compliance calculation based on RISK_CATEGORIES.md
+
+  **4. Quick Info:**
+  - Displays contact's key information:
+    - Email (Mail icon, mailto: link)
+    - Phone (Phone icon, tel: link)
+    - Company & Job Title (Briefcase icon)
+    - Full address (MapPin icon, formatted)
+    - Budget range (DollarSign icon, formatted)
+  - Icons for visual categorization
+  - "View Full Details" button → switches to info tab
+  - Empty states for missing fields
+
+  **Features:**
+  - `onTabChange` callback prop to switch tabs programmatically
+  - Card-based layout with consistent spacing
+  - Hover effects on clickable cards
+  - ScrollArea for overflow handling
+  - Dark mode support
+  - All icons from lucide-react
+
+- **Contact Detail Integration:** (`components/crm/contact-detail.tsx`)
+  - **Updated Tab Order:**
+    1. Overview (Activity icon) ← NEW DEFAULT (was Activity before)
+    2. Contact Info (FileText icon)
+    3. Properties (Home icon)
+    4. Email (Mail icon)
+    5. WhatsApp (MessageSquare icon)
+    6. Documents (FileText icon)
+    7. Deals (Briefcase icon) ← NEW TAB
+  - Passes `onTabChange` callback to ContactOverviewTab
+  - Auto-switches tabs when clicking overview cards
+
+#### UI Components
+
+**New shadcn/ui components for improved UX**
+
+- **Calendar Component:** (`components/ui/calendar.tsx`)
+  - Based on react-day-picker library
+  - **Features:**
+    - Month/year dropdown selectors
+    - Chevron navigation buttons
+    - Day selection with keyboard support
+    - Range selection support
+    - Outside days display (grayed out)
+    - Dark mode support
+    - Custom button variant support
+    - Responsive design
+  - **Usage:**
+    - Date pickers in deal forms (expected close date)
+    - Document date pickers (document_date, due_date)
+    - Future: Activity date selection, filtering
+  - Customized with Tailwind CSS classes
+  - Full accessibility support
+
+- **Progress Component:** (`components/ui/progress.tsx`)
+  - Based on @radix-ui/react-progress
+  - **Features:**
+    - Visual progress bar
+    - Configurable value (0-100)
+    - Smooth transitions
+    - Dark mode support
+    - Height and width customizable
+  - **Usage:**
+    - ContactOverviewTab compliance score
+    - Future: Deal probability visualization, task completion
+  - Accessible with ARIA attributes
+
+#### Documentation
+
+**Comprehensive compliance and schema documentation**
+
+- **RISK_CATEGORIES.md:** Spanish real estate compliance guide
+  - Documents risk categories for Spanish real estate
+  - Categorizes documents by importance (1-5 scale):
+    - 1 (Low): Nice to have
+    - 2 (Low-Medium): Helpful but not critical
+    - 3 (Medium): Important for smooth transactions
+    - 4 (High): Required by law or critical for process
+    - 5 (Critical): Essential documents, cannot proceed without
+  - Lists required documents per transaction type:
+    - Buyer transactions
+    - Seller transactions
+    - Rental transactions
+    - Lender transactions
+  - Provides compliance scoring guidelines:
+    - Critical (5): 40% weight
+    - High (4): 30% weight
+    - Medium (3): 20% weight
+    - Low-Medium (2): 7% weight
+    - Low (1): 3% weight
+  - Examples for each category
+  - Used by AI extraction for importance scoring
+
+- **SUPABASE_SCHEMAS.md:** Complete database schema documentation
+  - All tables with full field descriptions:
+    - users, agents, companies
+    - contacts, properties, deals
+    - documents, document_embeddings, document_intelligence
+    - ocr_queue, conversations, subscriptions
+  - Indexes and constraints documented
+  - RLS policies explained with examples
+  - Relationships and foreign keys mapped
+  - Migration history tracked
+  - Use cases for each table
+  - Query patterns and optimization tips
+
+### Changed
+
+- **Contact Detail:** Default tab changed from Activity → Overview
+- **Contact Detail:** Tab order updated to include Deals and Documents
+- **Contacts Page:** Layout changed from phone-book → category-based with tabs
+  - Search bar moved to top center
+  - Category tabs added below search
+  - Contact cards in grid instead of list
+  - Detail panel on right (when selected)
+  - Auto-close detail when search changes
+- **Contact Form:** Added category field in CRM Details section (full form only)
+- **Contact Search:** Enhanced multi-term search logic (see Fixed section)
+- **Documents:** Now support dual relationship patterns (primary entity + N-to-N)
+- **Search Router:** Added entityType and category filters to semantic search
+- **Documents Router:** Added update endpoint for metadata editing
+
+### Fixed
+
+- **Search by Full Name:** Multi-term search now handles Spanish naming conventions (`server/repositories/contacts.repository.ts`)
+  - **Problem:** Searching "Juan Juanito Juan" (first name + two-part last name) returned no results
+  - **Root Cause:** Simple OR search couldn't match split names
+  - **Solution:** Smart multi-term search logic
+    - **Single term:** Searches in any field (first_name OR last_name OR email OR ...)
+    - **Multiple terms:**
+      - First term matches first_name
+      - OR remaining terms match last_name
+      - OR full search matches any field
+
+    ```typescript
+    const searchTerms = filters.search.trim().split(/\s+/)
+    if (searchTerms.length === 1) {
+      query.or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,...`)
+    } else {
+      const firstTerm = searchTerms[0]
+      const otherTerms = searchTerms.slice(1).join(' ')
+      query.or(
+        `first_name.ilike.%${firstTerm}%,` +
+        `last_name.ilike.%${otherTerms}%,` +
+        `last_name.ilike.%${filters.search}%,` +
+        `email.ilike.%${filters.search}%,...`
+      )
+    }
+    ```
+
+  - **Impact:** Correctly matches contacts with:
+    - First name: "Juan"
+    - Last name: "Juanito Juan" (compound last name)
+  - Spanish naming conventions fully supported
+
+- **Duplicate OCR Processing:** VPS OCR service improvements (`vps-ocr-service/`)
+  - **Problem:** Documents were being processed multiple times
+  - **Files Updated:**
+    - `app/database.py` - Simplified database connection handling (65 lines → cleaner)
+    - `app/job_poller.py` - Improved job poller logic (56 lines → more robust)
+    - `app/main.py` - Better error handling (42 lines → cleaner)
+  - **Fixes Applied:**
+    - Improved job deduplication logic
+    - Better queue status management
+    - Enhanced transaction handling
+    - More robust error recovery
+  - **Impact:** Each document now processed exactly once
+
+- **Dashboard Layout:** Fixed page sizes and scroll areas to prevent overflow (`app/(dashboard)/layout.tsx`)
+  - Better height management
+  - Improved ScrollArea usage
+  - Responsive padding adjustments
+
+### Technical Details
+
+- **Architecture:** Clean layered architecture maintained (Router → Service → Repository → Database)
+- **Type Safety:** End-to-end TypeScript from database to UI
+- **Performance:**
+  - Indexed queries on deals (stage, contact_id, property_id, expected_close_date)
+  - GIN indexes on document array fields (related_contact_ids, related_property_ids)
+  - Date indexes for compliance due date filtering
+- **Security:**
+  - RLS policies on deals table (user-scoped access)
+  - Subscription checks on all deal endpoints
+  - Proper input validation with Zod
+- **Dependencies Added:**
+  - react-day-picker - Calendar component
+  - @radix-ui/react-progress - Progress bar component
+- **Build:** ✅ Type check passed, ✅ Build successful
+- **Migration Files Applied:**
+  - 20250119_document_metadata_fields.sql
+  - 20250120_add_contact_category.sql
+  - 20250121_deals.sql
+
+### Phase Status
+
+**Phase 1: Foundation** - ✅ Complete
+
+- ✅ Authentication + 7-day trial subscription system
+- ✅ Stripe payment integration
+- ✅ Dashboard MVP with action center
+- ✅ Navigation sidebars
+
+**Phase 2: Core CRM** - 🔄 In Progress (85% complete)
+
+- ✅ **Contacts CRUD** - Full implementation with phone-book UI
+- ✅ **Properties Management** - Complete with CRUD, search, filtering, image gallery
+- ✅ **Documents Upload UI** - Complete with drag-and-drop, viewer, delete
+- ✅ **Document Intelligence** - OCR fields, AI metadata, embeddings table
+- ✅ **VPS OCR Service** - Deployed and fully operational
+- ✅ **Property-Contact Linking** - Bidirectional with role-based relationships
+- ✅ **Complete OCR Pipeline** - Upload → OCR → Embeddings → Database → UI
+- ✅ **Deals Pipeline** - Complete CRUD with 11-stage workflow
+- ✅ **Contact Categories** - 6-category classification system
+- ✅ **Enhanced Document Relations** - N-to-N fuzzy linking + primary entity
+- ✅ **Contact Tabs** - Deals, Documents, Overview tabs fully functional
+- ✅ **Smart Search** - Multi-term search supports Spanish naming conventions
+- ⏳ AI metadata extraction - Backend ready, webhook integration pending
+- ⏳ Semantic search UI - Backend ready (embeddings working), UI pending
+- ⏳ Activities timeline - Types defined
+- ⏳ Dashboard stats - Placeholder data, awaiting real data integration
+
+**Next Steps:**
+
+- AI metadata extraction webhook integration
+- Semantic search UI (vector similarity search)
+- Activities timeline with deal attachments
+- Deal kanban board view (currently list view)
+- Dashboard integration with real CRM data
+- Compliance score calculation (based on RISK_CATEGORIES.md)
+
+---
+
 ## [0.11.0] - 2025-11-19
 
 ### Added - Smart Document Search & Editable Metadata
@@ -12,6 +532,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Decision: Removed Semantic Search (Simpler, Faster MVP)
 
 **Why we removed vector embeddings:**
+
 - 95% of searches don't need semantic similarity ("find contract" vs "find agreement")
 - PostgreSQL full-text search is 10x faster (1-5ms vs 50-200ms)
 - Saves storage (~1.5KB per document for embeddings)
@@ -19,6 +540,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More predictable results for users
 
 **What we kept:**
+
 - AI metadata extraction (names, dates, importance)
 - Full-text search on OCR text
 - Smart filtering by metadata
@@ -133,6 +655,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Implementation
 
 **Full-Text Search Performance:**
+
 ```sql
 -- Existing GIN index (from migration 20250118_document_intelligence.sql)
 CREATE INDEX documents_ocr_text_idx ON documents
@@ -146,6 +669,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ```
 
 **Search Flow:**
+
 1. User types in search bar
 2. 300ms debounce timer
 3. tRPC query with search params
@@ -155,6 +679,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 7. UI updates with results
 
 **Metadata Update Flow:**
+
 1. User edits fields in Metadata tab
 2. Clicks "Save Metadata"
 3. Frontend parses tags (comma-separated → array)
@@ -298,27 +823,33 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
   - Issue: systemd service couldn't find `pdftoppm` command
   - Root cause: Restricted PATH only included virtualenv
   - Solution: Added full system PATH to service file:
+
     ```
     Environment="PATH=/opt/kairo/vps-ocr-service/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     ```
+
   - Impact: PDF to image conversion now works
 
 - **pgbouncer Compatibility:** Fixed prepared statement errors (`vps-ocr-service/app/database.py`)
   - Issue: Supabase uses pgbouncer which doesn't support prepared statements
   - Error: "prepared statement already exists"
   - Solution: Disabled statement caching in asyncpg:
+
     ```python
     statement_cache_size=0  # Required for pgbouncer
     ```
+
   - Impact: All database operations now work with Supabase
 
 - **Vector Format Conversion:** Fixed embedding storage error (`vps-ocr-service/app/database.py`)
   - Issue: pgvector expected string, got Python list
   - Error: "expected str, got list"
   - Solution: Convert embedding array to string:
+
     ```python
     embedding_str = str(emb["embedding"])  # [1.0, 2.0, ...] → string
     ```
+
   - Impact: Embeddings now save successfully to database
 
 #### Database Schema Fixes
@@ -384,6 +915,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
    - Ready for semantic search!
 
 **Actual Performance (Production Data):**
+
 ```
 📄 Processing 3-page PDF:
   - Download: 0.1MB in <1s
@@ -480,17 +1012,20 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ### Performance
 
 **Document Upload & OCR:**
+
 - Upload: ~1-2 seconds (network dependent)
 - OCR: 2-3 seconds per page
 - Embeddings: 1-2 seconds per document
 - Total (3-page PDF): 6-10 seconds end-to-end
 
 **VPS Capacity:**
+
 - 1 VPS (2vCPU): ~500-1000 documents/day
 - Scales horizontally with multiple VPS instances
 - Row-level locking enables safe concurrent processing
 
 **Database:**
+
 - Embeddings: 384 dimensions (lightweight, fast search)
 - HNSW index: Sub-50ms similarity search
 - Vector storage: ~1.5KB per chunk (10 chunks ≈ 15KB per doc)
@@ -521,12 +1056,14 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ### Phase Status
 
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Authentication + 7-day trial subscription system
 - ✅ Stripe payment integration
 - ✅ Dashboard MVP with action center
 - ✅ Navigation sidebars
 
 **Phase 2: Core CRM** - 🔄 In Progress (70% complete)
+
 - ✅ **Contacts CRUD** - Full implementation with phone-book UI
 - ✅ **Properties Management** - Complete with CRUD, search, filtering, image gallery
 - ✅ **Documents Upload UI** - Complete with drag-and-drop, viewer, delete
@@ -541,6 +1078,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 - ⏳ Dashboard stats - Placeholder data, awaiting real data integration
 
 **Next Steps:**
+
 - AI metadata extraction webhook integration
 - Semantic search UI (vector similarity search)
 - Document viewer enhancements (annotations, highlights)
@@ -729,12 +1267,14 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ### Phase Status
 
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Authentication + 7-day trial subscription system
 - ✅ Stripe payment integration
 - ✅ Dashboard MVP with action center
 - ✅ Navigation sidebars
 
 **Phase 2: Core CRM** - 🔄 In Progress (60% complete)
+
 - ✅ **Contacts CRUD** - Full implementation with phone-book UI
 - ✅ **Properties Management** - Complete with CRUD, search, filtering, image gallery
 - ✅ **Documents Backend** - Database schema, types, repositories, services ready
@@ -748,6 +1288,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 - ⏳ Dashboard stats - Placeholder data, awaiting real data integration
 
 **Next Steps:**
+
 - Document upload UI with file picker
 - Connect upload to VPS OCR queue
 - Test end-to-end OCR processing
@@ -1063,12 +1604,14 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ### Phase Status
 
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Authentication + 7-day trial subscription system
 - ✅ Stripe payment integration
 - ✅ Dashboard MVP with action center
 - ✅ Navigation sidebars
 
 **Phase 2: Core CRM** - 🔄 In Progress (50% complete)
+
 - ✅ **Contacts CRUD** - Full implementation with phone-book UI
 - ✅ **Properties Management** - Complete with CRUD, search, filtering, image gallery
 - ✅ **Documents System** - Backend ready, UI placeholder
@@ -1079,6 +1622,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 - ⏳ Dashboard stats - Placeholder data, awaiting real data integration
 
 **Next Steps:**
+
 - Deals pipeline implementation (kanban board UI)
 - Activities timeline (auto-logging)
 - Document upload UI with file management
@@ -1338,12 +1882,14 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ### Phase Status
 
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Authentication + 7-day trial subscription system
 - ✅ Stripe payment integration
 - ✅ Dashboard MVP with action center
 - ✅ Navigation sidebars
 
 **Phase 2: Core CRM** - 🔄 In Progress (25% complete)
+
 - ✅ **Contacts CRUD** - Full implementation with phone-book UI
 - ⏳ Properties management - Types defined, database ready
 - ⏳ Deals pipeline - Types defined
@@ -1352,6 +1898,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 - ⏳ Dashboard stats - Placeholder data, awaiting real data integration
 
 **Next Steps:**
+
 - Properties CRUD implementation (database, API, UI)
 - Deals pipeline (kanban board UI)
 - Activities timeline (auto-logging)
@@ -1364,6 +1911,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ### Added - Stripe Payment Integration (Phase D)
 
 #### Payment Infrastructure
+
 - **Stripe SDK Integration:** Installed stripe and @stripe/stripe-js packages
   - Server-side Stripe SDK for backend operations
   - Client-side Stripe.js for secure checkout
@@ -1472,18 +2020,21 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
   - Price IDs mapped in `pricing.ts`
 
 ### Changed
+
 - Subscribe page: Single plan → Two-tier pricing with 3 billing cycles
 - Settings subscription page: Placeholder → Full management UI
 - tRPC procedures: Added `subscribedProcedure` for API-level subscription checks
 - Middleware: Now complemented by API-level subscription validation
 
 ### Fixed
+
 - **Subscription Bypass Issue:** Users could access dashboard via API calls even after trial expiration
   - Root cause: Middleware only checked on page navigation
   - Solution: Added `subscribedProcedure` to validate subscription on every tRPC call
   - Impact: Complete subscription enforcement at both middleware and API layers
 
 ### Technical Details
+
 - **Architecture:** Adapter pattern allows swapping Stripe for other payment providers
 - **Type Safety:** End-to-end TypeScript from Stripe events to UI
 - **Security:** Webhook signature verification, secure API routes
@@ -1494,6 +2045,7 @@ WHERE to_tsvector('spanish', ocr_text) @@ to_tsquery('spanish', 'contract')
 ### Deployment Notes
 
 **Required Environment Variables:**
+
 ```bash
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
@@ -1501,6 +2053,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 ```
 
 **Webhook Setup (After Deployment):**
+
 1. Deploy application to production
 2. In Stripe Dashboard → Developers → Webhooks
 3. Add endpoint: `https://your-domain.com/api/webhooks/stripe`
@@ -1513,12 +2066,15 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 5. Copy webhook signing secret to `STRIPE_WEBHOOK_SECRET`
 
 **Stripe Product Setup:**
+
 - Products created in Stripe Dashboard (Test mode)
 - Price IDs configured in `pricing.ts`
 - Prebuilt Checkout Page selected for fast, secure payments
 
 ### Phase Status
+
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Authentication with 7-day free trials
 - ✅ Subscription system with database backend
 - ✅ Subscription enforcement at middleware level
@@ -1530,6 +2086,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - ✅ **API-level subscription validation**
 
 **Next: Phase 2** - Core CRM Features
+
 - Contacts CRUD with subscribed procedure protection
 - Properties management
 - Deals pipeline
@@ -1540,6 +2097,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 ### Added - Subscription Enforcement Middleware (Phase C)
 
 #### Subscription Access Control
+
 - **Middleware Enhancement:** Updated proxy middleware to enforce subscription status (`lib/supabase/middleware.ts`)
   - Checks subscription status for all protected routes
   - Redirects to /subscribe if trial expired or no active subscription
@@ -1564,6 +2122,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
   - Consistent black/white styling
 
 #### Access Control Flow
+
 1. User authenticated → Check subscription status
 2. Trial active (< 7 days) → Allow access
 3. Paid subscription active → Allow access
@@ -1571,11 +2130,13 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 5. User can only access /subscribe, /login, /signup when expired
 
 ### Changed
+
 - Middleware now enforces subscription-based access control
 - All dashboard routes require active subscription or trial
 - Settings page redesigned with card layout
 
 ### Technical Details
+
 - Type-safe subscription checking in middleware
 - Database query optimization for subscription lookups
 - Error handling with fail-open strategy
@@ -1583,13 +2144,16 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - 20 routes compiled (added /subscribe)
 
 ### Phase Status
+
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Subscription system with 7-day trials
 - ✅ Subscription enforcement via middleware
 - ✅ Pricing page ready for Stripe
 - ✅ Access control fully functional
 
 **Next: Phase D** - Stripe Payment Integration
+
 - Stripe checkout flow
 - Webhook handling for payment events
 - Customer portal for subscription management
@@ -1600,6 +2164,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 ### Added - Subscription System & Navigation Sidebars (Phase A + B)
 
 #### Phase A: Subscription Backend - 7-Day Free Trial System
+
 - **Database:** New `subscriptions` table with full subscription lifecycle management
   - Auto-created 7-day trial on user signup
   - Tracks trial/active/expired/cancelled states
@@ -1628,6 +2193,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
   - Non-blocking: signup succeeds even if subscription fails
 
 #### Phase B: Navigation Sidebars - Complete UI Navigation
+
 - **Left Sidebar:** Main navigation (`components/layout/left-sidebar.tsx`)
   - Dashboard, CRM, Properties, Compliance, Social, Client Portal
   - Active state highlighting, hover descriptions
@@ -1649,11 +2215,13 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
   - Consistent "Coming Soon" styling
 
 ### Changed
+
 - Dashboard layout: Single column → Three-column with sidebars
 - User navigation: No nav → Full MVP section navigation
 - Types index: Now exports subscription types
 
 ### Technical Details
+
 - Backend: Service-Repository pattern, admin clients for RLS bypass
 - Frontend: React hooks + tRPC for real-time subscription status
 - Styling: Black/white minimalist design throughout
@@ -1661,7 +2229,9 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - 19 routes compiled successfully
 
 ### Phase Status
+
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Authentication + 7-day trial subscription system
 - ✅ Left & right sidebars with full navigation
 - ✅ All MVP placeholder pages
@@ -1672,6 +2242,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 ## [0.3.0] - 2025-11-13
 
 ### Added - MVP Dashboard Implementation
+
 - **Dashboard Page:** Complete MVP dashboard with all core features (`app/(dashboard)/dashboard/page.tsx`)
   - Clean, minimalist black/white design matching auth pages
   - Fully responsive layout with mobile support
@@ -1712,11 +2283,13 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
   - Full accessibility and focus states
 
 ### Changed
+
 - Dashboard page completely redesigned from basic placeholder
 - Improved layout structure with responsive grid system
 - Enhanced visual hierarchy with cards and sections
 
 ### Technical Details
+
 - State management with React hooks for tasks, notepad, and command input
 - TypeScript interfaces for type-safe task objects
 - Priority-based styling system with helper functions
@@ -1724,7 +2297,9 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - Tailwind CSS for responsive design and dark mode
 
 ### Phase Status
+
 **Phase 1: Foundation** - ✅ Complete (Dashboard MVP)
+
 - ✅ Authentication fully implemented
 - ✅ Protected routes configured
 - ✅ **MVP Dashboard with all core features**
@@ -1738,6 +2313,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 ## [0.2.0] - 2025-11-12
 
 ### Added - Authentication Implementation
+
 - **Supabase Authentication:** Complete Supabase Auth integration with JWT-based sessions
   - Browser client (`lib/supabase/client.ts`) for client-side operations
   - Server client (`lib/supabase/server.ts`) for Server Components and API routes
@@ -1779,22 +2355,26 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
   - Configured in root layout
 
 ### Changed
+
 - Updated `proxy.ts` to use Supabase authentication middleware
 - Enhanced tRPC server with protected procedure middleware
 - Updated tRPC context to include user session
 - Auth pages migrated from placeholders to full implementations
 
 ### Fixed
+
 - tRPC client configuration (was missing proper setup)
 - TypeScript errors in auth pages (implicit any types)
 - Build errors from missing tRPC provider
 
 ### Database
+
 - Agent and company tables now protected by RLS policies
 - Indexes added for performance optimization
 - Foreign key relationships properly configured
 
 ### Security
+
 - Row-Level Security enforced on all tables
 - JWT-based authentication with Supabase
 - Secure session management with HTTP-only cookies
@@ -1802,11 +2382,14 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - Email validation on signup
 
 ### Documentation
+
 - `supabase/README.md` - Guide for applying RLS policies and migrations
 - Updated project documentation with authentication flow
 
 ### Phase Status
+
 **Phase 1: Foundation** - ✅ Complete
+
 - ✅ Directory structure established
 - ✅ Next.js + TypeScript + Tailwind configured
 - ✅ tRPC type-safe API framework ready
@@ -1824,6 +2407,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 ## [0.1.0] - 2025-11-11
 
 ### Added
+
 - Initial project structure with monorepo architecture
 - Next.js 16 with App Router and React Server Components
 - TypeScript 5+ configuration with strict mode
@@ -1853,12 +2437,14 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
   - `/api/webhooks` - Webhooks placeholder
 
 ### Changed
+
 - Migrated from `middleware.ts` to `proxy.ts` (Next.js 16 convention)
 - Updated `next.config.js` to use `images.remotePatterns` instead of deprecated `images.domains`
 - Removed deprecated `swcMinify` option from Next.js config
 - Configured Turbopack root directory for monorepo detection
 
 ### Fixed
+
 - Next.js 16 configuration warnings (deprecated options)
 - Workspace root detection issues with Vercel
 - pnpm version mismatch between CI and local environment
@@ -1871,13 +2457,16 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - Monorepo dependency installation in CI/CD pipeline
 
 ### Deployment
+
 - Successfully deployed to Vercel with monorepo support
 - CI pipeline running on GitHub Actions
 - Automatic preview deployments for pull requests
 - Production deployments on main branch merge
 
 ### Phase Status
+
 **Phase 1: Foundation** -  Complete (Infrastructure & Architecture)
+
 -  Directory structure established
 -  Next.js + TypeScript + Tailwind configured
 -  tRPC type-safe API framework ready
@@ -1889,6 +2478,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 -  Production deployment successful
 
 **Next Steps (Phase 1 Continuation):**
+
 - [ ] Implement Supabase project setup
 - [ ] Add Supabase authentication logic
 - [ ] Connect database with Drizzle ORM
@@ -1901,6 +2491,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 ### Planned Features
 
 #### Phase 2: Core CRM (Weeks 5-10)
+
 - Contacts CRUD operations
 - Properties management
 - Deals pipeline
@@ -1909,6 +2500,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - Dashboard with statistics
 
 #### Phase 3: Documents (Weeks 11-13)
+
 - File upload to Supabase Storage
 - Document viewer (PDF, images)
 - Link documents to contacts/properties
@@ -1916,6 +2508,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - Organize by folders/tags
 
 #### Phase 4: Unified Messaging (Weeks 14-17)
+
 - Email integration (Gmail/Outlook sync)
 - WhatsApp Business API integration
 - Unified conversation view (all channels per contact)
@@ -1924,6 +2517,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - Real-time message status updates
 
 #### Phase 5: Intelligence (Weeks 18-22)
+
 - OpenAI integration
 - Generate embeddings for all content
 - Semantic search across CRM
@@ -1932,6 +2526,7 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 - Email draft generation
 
 #### Phase 6: Polish & Launch (Weeks 23-26)
+
 - Mobile responsive design
 - PWA setup (installable)
 - Performance optimization
@@ -1942,5 +2537,5 @@ STRIPE_WEBHOOK_SECRET=whsec_... # Get this after deploying webhook endpoint
 
 ---
 
-**Repository:** https://github.com/albiol2004/kairo
-**Deployment:** https://vercel.com/albiol2004/kairo
+**Repository:** <https://github.com/albiol2004/kairo>
+**Deployment:** <https://vercel.com/albiol2004/kairo>

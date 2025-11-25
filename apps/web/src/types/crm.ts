@@ -570,6 +570,15 @@ export interface Document {
   extractedDates: Date[]
   relatedContactIds: string[] // Fuzzy searchable contacts
   relatedPropertyIds: string[] // Fuzzy searchable properties
+
+  // Hydrated relations
+  relatedContacts?: Array<{
+    id: string
+    firstName: string
+    lastName: string
+    email?: string
+    profilePictureUrl?: string
+  }>
 }
 
 export interface CreateDocumentInput {

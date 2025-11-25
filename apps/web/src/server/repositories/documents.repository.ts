@@ -55,7 +55,7 @@ export class DocumentsRepository {
       throw new Error(`Failed to list documents: ${error.message}`)
     }
 
-    return (data || []).map(this.mapToDocument)
+    return this.attachContactsToDocuments(data || [])
   }
 
   /**
@@ -75,7 +75,7 @@ export class DocumentsRepository {
       throw new Error(`Failed to list documents: ${error.message}`)
     }
 
-    return (data || []).map(this.mapToDocument)
+    return this.attachContactsToDocuments(data || [])
   }
 
   /**
@@ -221,12 +221,28 @@ export class DocumentsRepository {
       const searchTerm = params.query.trim()
 
       // Search for matching contacts
-      const { data: matchingContacts } = await supabase
+      let contactQuery = supabase
         .from('contacts')
         .select('id')
         .eq('user_id', userId)
-        .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-        .limit(100)
+
+      const searchTerms = searchTerm.split(/\s+/)
+
+      if (searchTerms.length === 1) {
+        contactQuery = contactQuery.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+      } else {
+        // Handle multi-word search (e.g. "Juan Juanito")
+        // Check if first word matches first_name OR remaining words match last_name
+        // Also check if full string matches last_name or email
+        const firstTerm = searchTerms[0]
+        const otherTerms = searchTerms.slice(1).join(' ')
+
+        contactQuery = contactQuery.or(
+          `first_name.ilike.%${firstTerm}%,last_name.ilike.%${otherTerms}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`
+        )
+      }
+
+      const { data: matchingContacts } = await contactQuery.limit(100)
 
       // Search for matching properties
       const { data: matchingProperties } = await supabase
@@ -326,7 +342,7 @@ export class DocumentsRepository {
         throw new Error(`Failed to search documents: ${error.message}`)
       }
 
-      return (data || []).map(this.mapToDocument)
+      return this.attachContactsToDocuments(data || [])
     }
 
     // No search query - use standard filtering
@@ -399,13 +415,13 @@ export class DocumentsRepository {
       throw new Error(`Failed to search documents: ${error.message}`)
     }
 
-    return (data || []).map(this.mapToDocument)
+    return this.attachContactsToDocuments(data || [])
   }
 
   /**
    * Map database row to Document type
    */
-  private mapToDocument(row: any): Document {
+  private mapToDocument(row: any, contactsMap?: Map<string, any>): Document {
     return {
       id: row.id,
       userId: row.user_id,
@@ -446,7 +462,56 @@ export class DocumentsRepository {
       extractedDates: (row.extracted_dates || []).map((d: string) => new Date(d)),
       relatedContactIds: row.related_contact_ids || [],
       relatedPropertyIds: row.related_property_ids || [],
+
+      // Hydrate contacts if map is provided
+      relatedContacts: contactsMap
+        ? (row.related_contact_ids || [])
+          .map((id: string) => contactsMap.get(id))
+          .filter((c: any) => c !== undefined)
+        : undefined,
     }
+  }
+
+  /**
+   * Helper to fetch and attach related contacts to a list of documents
+   * Prevents N+1 query problem by fetching all needed contacts in one batch
+   */
+  private async attachContactsToDocuments(documents: any[]): Promise<Document[]> {
+    if (!documents.length) return []
+
+    // 1. Collect all unique contact IDs
+    const contactIds = new Set<string>()
+    documents.forEach(doc => {
+      if (doc.related_contact_ids && Array.isArray(doc.related_contact_ids)) {
+        doc.related_contact_ids.forEach((id: string) => contactIds.add(id))
+      }
+    })
+
+    if (contactIds.size === 0) {
+      return documents.map(d => this.mapToDocument(d))
+    }
+
+    // 2. Fetch contacts in batch
+    const supabase = await createClient()
+    const { data: contacts } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email, profile_picture_url')
+      .in('id', Array.from(contactIds))
+
+    // 3. Create lookup map
+    const contactsMap = new Map()
+    contacts?.forEach(c => {
+      contactsMap.set(c.id, {
+        id: c.id,
+        firstName: c.first_name,
+        lastName: c.last_name,
+        email: c.email,
+        profilePictureUrl: c.profile_picture_url
+      })
+    })
+
+    // 4. Map documents with contacts
+    return documents.map(d => this.mapToDocument(d, contactsMap))
   }
 }
 

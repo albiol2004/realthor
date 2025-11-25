@@ -104,6 +104,29 @@ export function DocumentCard({ document, isSelected, onClick }: DocumentCardProp
         <div className="text-xs text-muted-foreground">
           {new Date(document.createdAt).toLocaleDateString()}
         </div>
+
+        {/* Related Contact Card */}
+        {document.relatedContacts && document.relatedContacts.length > 0 && (
+          <div className="mt-2 pt-2 border-t flex items-center gap-2">
+            <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+              {document.relatedContacts[0].profilePictureUrl ? (
+                <img
+                  src={document.relatedContacts[0].profilePictureUrl}
+                  alt={document.relatedContacts[0].firstName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-[10px] font-medium text-primary">
+                  {document.relatedContacts[0].firstName[0]}
+                  {document.relatedContacts[0].lastName[0]}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground truncate">
+              {document.relatedContacts[0].firstName} {document.relatedContacts[0].lastName}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { trpc } from '@/lib/trpc/client'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
@@ -11,9 +12,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Briefcase, Plus, Trash2, Loader2, DollarSign } from 'lucide-react'
+import { Briefcase, Plus, Trash2, Loader2, DollarSign, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Deal, DealStage } from '@/types/crm'
+import type { Deal, DealStage, DealType } from '@/types/crm'
+import { getDealTypeLabel, getDealTypeColor } from '@/types/crm'
+import { invalidateDealQueries } from '@/lib/trpc/cache-invalidation'
 
 interface ContactDealsTabProps {
   contactId: string
@@ -28,6 +31,14 @@ const DEAL_STAGES: { value: DealStage; label: string; color: string }[] = [
   { value: 'under_contract', label: 'Under Contract', color: 'bg-yellow-500' },
   { value: 'closed_won', label: 'Closed Won', color: 'bg-green-500' },
   { value: 'closed_lost', label: 'Closed Lost', color: 'bg-red-500' },
+]
+
+const DEAL_TYPES: { value: DealType; label: string }[] = [
+  { value: 'residential_resale', label: 'Residential Resale (Second Hand)' },
+  { value: 'new_development', label: 'New Development' },
+  { value: 'residential_rental', label: 'Residential Rental (LAU)' },
+  { value: 'commercial', label: 'Commercial & Retail' },
+  { value: 'rural_land', label: 'Rural & Land' },
 ]
 
 function formatCurrency(value?: number): string {
@@ -51,11 +62,14 @@ function getStageLabel(stage: DealStage): string {
  * Shows all deals linked to this contact with create functionality
  */
 export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
+  const router = useRouter()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
+  const [isLinkOpen, setIsLinkOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Form state
   const [title, setTitle] = useState('')
+  const [dealType, setDealType] = useState<DealType>('residential_resale')
   const [value, setValue] = useState('')
   const [stage, setStage] = useState<DealStage>('lead')
   const [probability, setProbability] = useState('')
@@ -72,7 +86,7 @@ export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
   const createMutation = trpc.deals.create.useMutation({
     onSuccess: () => {
       toast.success('Deal creado exitosamente')
-      utils.deals.list.invalidate()
+      invalidateDealQueries(utils)
       handleCloseCreate()
     },
     onError: (error) => {
@@ -84,10 +98,37 @@ export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
   const deleteMutation = trpc.deals.delete.useMutation({
     onSuccess: () => {
       toast.success('Deal eliminado')
-      utils.deals.list.invalidate()
+      invalidateDealQueries(utils)
     },
     onError: (error) => {
       toast.error(error.message || 'Error al eliminar deal')
+    },
+  })
+
+  // Fetch all deals for linking (exclude already linked ones)
+  const { data: allDeals } = trpc.deals.list.useQuery(
+    {},
+    { enabled: isLinkOpen }
+  )
+
+  // Filter out deals already linked to this contact and apply search
+  const availableDeals = allDeals?.filter(deal => {
+    const notLinked = !deals?.some(d => d.id === deal.id)
+    const matchesSearch = !searchQuery ||
+      deal.title.toLowerCase().includes(searchQuery.toLowerCase())
+    return notLinked && matchesSearch
+  }) || []
+
+  // Link mutation
+  const linkMutation = trpc.deals.addContact.useMutation({
+    onSuccess: () => {
+      toast.success('Contacto vinculado al deal')
+      invalidateDealQueries(utils)
+      setIsLinkOpen(false)
+      setSearchQuery('')
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Error al vincular contacto')
     },
   })
 
@@ -98,8 +139,9 @@ export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
     }
 
     createMutation.mutate({
-      contactId,
+      contactIds: [contactId],
       title: title.trim(),
+      dealType,
       value: value ? parseFloat(value) : undefined,
       stage,
       probability: probability ? parseInt(probability) : undefined,
@@ -110,6 +152,7 @@ export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
   const handleCloseCreate = () => {
     setIsCreateOpen(false)
     setTitle('')
+    setDealType('residential_resale')
     setValue('')
     setStage('lead')
     setProbability('')
@@ -119,6 +162,13 @@ export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
   const handleDelete = (dealId: string) => {
     if (!confirm('¿Eliminar este deal?')) return
     deleteMutation.mutate({ id: dealId })
+  }
+
+  const handleLinkToDeal = (dealId: string) => {
+    linkMutation.mutate({
+      dealId,
+      contactId,
+    })
   }
 
   return (
@@ -145,14 +195,17 @@ export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
                 <Card
                   key={deal.id}
                   className="p-4 hover:border-purple-300 dark:hover:border-purple-700 transition-colors cursor-pointer"
-                  onClick={() => setSelectedDeal(deal)}
+                  onClick={() => router.push(`/deals?id=${deal.id}`)}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <h4 className="font-semibold text-black dark:text-white truncate">
                           {deal.title}
                         </h4>
+                        <Badge className={`${getDealTypeColor(deal.dealType)} text-xs font-medium`}>
+                          {getDealTypeLabel(deal.dealType)}
+                        </Badge>
                         <Badge className={`${getStageColor(deal.stage)} text-white text-xs`}>
                           {getStageLabel(deal.stage)}
                         </Badge>
@@ -249,6 +302,23 @@ export function ContactDealsTab({ contactId }: ContactDealsTabProps) {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
+            </div>
+
+            {/* Deal Type */}
+            <div>
+              <Label htmlFor="dealType">Tipo de Operación *</Label>
+              <Select value={dealType} onValueChange={(val) => setDealType(val as DealType)}>
+                <SelectTrigger id="dealType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEAL_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Value */}

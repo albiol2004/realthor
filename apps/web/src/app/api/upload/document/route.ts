@@ -131,6 +131,15 @@ export async function POST(request: NextRequest) {
     if (entityType && entityId) {
       documentData.entity_type = entityType
       documentData.entity_id = entityId
+
+      // If linking to a contact, also populate related_contact_ids array
+      if (entityType === 'contact') {
+        documentData.related_contact_ids = [entityId]
+      }
+      // If linking to a property, also populate related_property_ids array
+      else if (entityType === 'property') {
+        documentData.related_property_ids = [entityId]
+      }
     }
 
     const { data: document, error: documentError } = await supabase

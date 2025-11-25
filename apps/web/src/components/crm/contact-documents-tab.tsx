@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { trpc } from '@/lib/trpc/client'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,7 @@ interface ContactDocumentsTabProps {
  * Shows all documents linked to this contact with upload functionality
  */
 export function ContactDocumentsTab({ contactId }: ContactDocumentsTabProps) {
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const router = useRouter()
   const [isUploadOpen, setIsUploadOpen] = useState(false)
 
   // Fetch documents for this contact
@@ -26,6 +27,11 @@ export function ContactDocumentsTab({ contactId }: ContactDocumentsTabProps) {
     entityType: 'contact',
     entityId: contactId,
   })
+
+  const handleDocumentClick = (document: Document) => {
+    // Navigate to Documents page with this document selected
+    router.push(`/documents?id=${document.id}`)
+  }
 
   return (
     <>
@@ -51,8 +57,8 @@ export function ContactDocumentsTab({ contactId }: ContactDocumentsTabProps) {
                 <DocumentCard
                   key={document.id}
                   document={document as any}
-                  isSelected={selectedDocument?.id === document.id}
-                  onClick={() => setSelectedDocument(document as any)}
+                  isSelected={false}
+                  onClick={() => handleDocumentClick(document as any)}
                 />
               ))}
             </div>

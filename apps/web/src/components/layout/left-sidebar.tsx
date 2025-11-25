@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   Users,
+  Briefcase,
   Building2,
-  FileCheck,
   FileText,
   Share2,
   UserCog,
@@ -31,16 +31,16 @@ const navigationItems = [
     description: 'Contacts, Messages, Deals, Timeline',
   },
   {
+    name: 'Deals',
+    href: '/deals',
+    icon: Briefcase,
+    description: 'Sales Pipeline & Compliance',
+  },
+  {
     name: 'Properties',
     href: '/properties',
     icon: Building2,
     description: 'Property Workspace & Buyers',
-  },
-  {
-    name: 'Compliance',
-    href: '/compliance',
-    icon: FileCheck,
-    description: 'Documents & Checklists',
   },
   {
     name: 'Documents',

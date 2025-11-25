@@ -53,6 +53,7 @@ export const createContactSchema = z.object({
   status: contactStatusSchema.default('lead'),
   category: contactCategorySchema.optional(),
   source: contactSourceSchema.optional(),
+  role: z.enum(['buyer', 'seller', 'lender', 'tenant', 'landlord', 'other']).optional(),
   tags: z.array(z.string()).default([]),
 
   budgetMin: z.number().positive().max(999999999, 'Budget too large (max $999,999,999)').optional(),
@@ -240,6 +241,48 @@ export const documentTypeSchema = z.enum([
   'factura',
   'presupuesto',
   'otro',
+  // English aliases for deal compliance
+  'dni_nie_passport',
+  'power_of_attorney',
+  'kyc_form',
+  'proof_of_funds',
+  'title_deed',
+  'energy_certificate',
+  'community_debt_certificate',
+  'habitability_certificate',
+  'ibi_receipt',
+  'listing_agreement',
+  'certificate_no_urban_infraction',
+  'arras_contract',
+  'technical_building_inspection',
+  'electrical_bulletin',
+  'plusvalia_estimate',
+  'community_meeting_minutes',
+  'floor_plans',
+  'utility_bills',
+  'reservation_contract',
+  'purchase_contract',
+  'first_occupation_license',
+  'building_book',
+  'bank_guarantee',
+  'architectural_plans',
+  'quality_specifications',
+  'progress_reports',
+  'rental_contract',
+  'payslips',
+  'tax_returns',
+  'rent_default_insurance',
+  'property_inventory',
+  'community_statutes',
+  'company_deeds',
+  'cif',
+  'administrator_id',
+  'urban_compatibility_certificate',
+  'opening_license',
+  'acoustic_audit',
+  'urban_planning_certificate',
+  'topographic_survey',
+  'water_rights',
 ])
 
 // Create document schema
@@ -303,10 +346,19 @@ export const dealStageSchema = z.enum([
   'closed_lost',
 ])
 
+export const dealTypeSchema = z.enum([
+  'residential_resale',    // Second-hand residential
+  'new_development',       // New build from developer
+  'residential_rental',    // Residential rental (LAU)
+  'commercial',            // Commercial & retail
+  'rural_land',           // Rural properties & land
+])
+
 export const createDealSchema = z.object({
-  contactId: z.string().uuid(),
-  propertyId: z.string().uuid().optional(),
+  contactIds: z.array(z.string().uuid()).min(1, 'At least one contact is required'),
+  propertyIds: z.array(z.string().uuid()).optional(),
   title: z.string().min(1).max(200),
+  dealType: dealTypeSchema.default('residential_resale'),
   value: z.number().nonnegative().max(999999999).optional(),
   stage: dealStageSchema.default('lead'),
   probability: z.number().int().min(0).max(100).optional(),
@@ -317,19 +369,51 @@ export const createDealSchema = z.object({
 export const updateDealSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1).max(200).optional(),
+  dealType: dealTypeSchema.optional(),
   value: z.number().nonnegative().max(999999999).optional(),
   stage: dealStageSchema.optional(),
   probability: z.number().int().min(0).max(100).optional(),
   expectedCloseDate: z.date().optional(),
   actualCloseDate: z.date().optional(),
   notes: z.string().max(10000).optional(),
+  // Note: Relations are updated separately via dedicated endpoints
 })
 
 export const dealsFilterSchema = z.object({
   contactId: z.string().uuid().optional(),
   propertyId: z.string().uuid().optional(),
+  dealType: dealTypeSchema.optional(),
   stage: dealStageSchema.optional(),
   search: z.string().optional(),
   limit: z.number().int().positive().max(100).default(50),
   offset: z.number().int().nonnegative().default(0),
+})
+
+// Deal relation schemas
+export const addDealContactSchema = z.object({
+  dealId: z.string().uuid(),
+  contactId: z.string().uuid(),
+  role: z.string().optional(),
+})
+
+export const removeDealContactSchema = z.object({
+  dealId: z.string().uuid(),
+  contactId: z.string().uuid(),
+})
+
+export const addDealPropertySchema = z.object({
+  dealId: z.string().uuid(),
+  propertyId: z.string().uuid(),
+  role: z.string().optional(),
+})
+
+export const removeDealPropertySchema = z.object({
+  dealId: z.string().uuid(),
+  propertyId: z.string().uuid(),
+})
+
+export const updateDealRelationsSchema = z.object({
+  dealId: z.string().uuid(),
+  contactIds: z.array(z.string().uuid()).optional(),
+  propertyIds: z.array(z.string().uuid()).optional(),
 })

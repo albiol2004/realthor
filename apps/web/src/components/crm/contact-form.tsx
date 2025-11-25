@@ -76,6 +76,7 @@ export function ContactForm({
             status: initialData.status,
             category: initialData.category,
             source: initialData.source,
+            role: initialData.role,
             tags: initialData.tags,
             budgetMin: initialData.budgetMin,
             budgetMax: initialData.budgetMax,
@@ -354,33 +355,67 @@ export function ContactForm({
                     />
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="source"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Source</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value || undefined}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select source" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="referral">Referral</SelectItem>
-                            <SelectItem value="website">Website</SelectItem>
-                            <SelectItem value="social_media">Social Media</SelectItem>
-                            <SelectItem value="cold_call">Cold Call</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="role"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Role (for Compliance)</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value || undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select role" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="buyer">Buyer</SelectItem>
+                              <SelectItem value="seller">Seller</SelectItem>
+                              <SelectItem value="tenant">Tenant</SelectItem>
+                              <SelectItem value="landlord">Landlord</SelectItem>
+                              <SelectItem value="lender">Lender/Financier</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Role determines required compliance documents
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="source"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Source</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value || undefined}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select source" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="referral">Referral</SelectItem>
+                              <SelectItem value="website">Website</SelectItem>
+                              <SelectItem value="social_media">Social Media</SelectItem>
+                              <SelectItem value="cold_call">Cold Call</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                </div>
                 </div>
 
                 {/* Budget */}

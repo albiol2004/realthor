@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Search, Plus, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getContactCategoryLabel } from '@/types/crm'
+import { invalidateContactQueries } from '@/lib/trpc/cache-invalidation'
 
 const CATEGORIES: (ContactCategory | 'all')[] = [
   'all',
@@ -88,7 +89,7 @@ export default function CRMPage() {
         title: 'Contact created',
         description: `${newContact.firstName} ${newContact.lastName} has been added to your contacts.`,
       })
-      utils.contacts.list.invalidate()
+      invalidateContactQueries(utils)
       setSelectedContactId(newContact.id)
     },
     onError: (error) => {
@@ -106,7 +107,7 @@ export default function CRMPage() {
         title: 'Contact created',
         description: `${newContact.firstName} ${newContact.lastName} has been added to your contacts.`,
       })
-      utils.contacts.list.invalidate()
+      invalidateContactQueries(utils)
       setSelectedContactId(newContact.id)
     },
     onError: (error) => {
@@ -124,8 +125,7 @@ export default function CRMPage() {
         title: 'Contact updated',
         description: `${updatedContact.firstName} ${updatedContact.lastName} has been updated.`,
       })
-      utils.contacts.list.invalidate()
-      utils.contacts.getById.invalidate({ id: updatedContact.id })
+      invalidateContactQueries(utils)
     },
     onError: (error) => {
       toast({
@@ -142,7 +142,7 @@ export default function CRMPage() {
         title: 'Contact deleted',
         description: 'The contact has been removed from your list.',
       })
-      utils.contacts.list.invalidate()
+      invalidateContactQueries(utils)
       setSelectedContactId(null)
     },
     onError: (error) => {

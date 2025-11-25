@@ -195,6 +195,7 @@ export class ContactsRepository {
         status: input.status || 'lead',
         category: input.category || null,
         source: input.source || null,
+        role: input.role || null,
         tags: input.tags || [],
         budget_min: input.budgetMin || null,
         budget_max: input.budgetMax || null,
@@ -241,6 +242,7 @@ export class ContactsRepository {
     if (input.status !== undefined) updateData.status = input.status
     if (input.category !== undefined) updateData.category = input.category || null
     if (input.source !== undefined) updateData.source = input.source || null
+    if (input.role !== undefined) updateData.role = input.role || null
     if (input.tags !== undefined) updateData.tags = input.tags
     if (input.budgetMin !== undefined)
       updateData.budget_min = input.budgetMin || null
@@ -387,6 +389,7 @@ export class ContactsRepository {
       status: row.status,
       category: row.category,
       source: row.source,
+      role: row.role,
       tags: row.tags || [],
       budgetMin: row.budget_min,
       budgetMax: row.budget_max,

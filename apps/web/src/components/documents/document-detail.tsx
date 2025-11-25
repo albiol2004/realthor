@@ -24,86 +24,11 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import type { Document, DocumentType } from "@/types/crm"
+import { invalidateDocumentQueries } from "@/lib/trpc/cache-invalidation"
+import { DOCUMENT_TYPES_BY_CATEGORY } from "@/lib/config/document-categories"
 
-// Spanish Real Estate Document Types organized by category
-const DOCUMENT_TYPES_BY_CATEGORY = {
-  "Contratos": [
-    { value: "contrato_compraventa", label: "Contrato Compraventa" },
-    { value: "contrato_arras", label: "Contrato de Arras" },
-    { value: "contrato_alquiler", label: "Contrato de Alquiler" },
-    { value: "contrato_reserva", label: "Contrato de Reserva" },
-    { value: "contrato_obra", label: "Contrato de Obra" },
-    { value: "contrato_hipoteca", label: "Contrato Hipoteca" },
-  ],
-  "Escrituras": [
-    { value: "escritura_propiedad", label: "Escritura Propiedad" },
-    { value: "escritura_hipoteca", label: "Escritura Hipoteca" },
-    { value: "nota_simple", label: "Nota Simple" },
-  ],
-  "Certificados": [
-    { value: "certificado_eficiencia_energetica", label: "Certificado Eficiencia Energética (CEE)" },
-    { value: "certificado_habitabilidad", label: "Certificado Habitabilidad (Cédula)" },
-    { value: "certificado_antigüedad", label: "Certificado Antigüedad" },
-    { value: "certificado_cargas", label: "Certificado de Cargas" },
-  ],
-  "Licencias": [
-    { value: "licencia_ocupacion", label: "Licencia de Ocupación" },
-    { value: "licencia_obra", label: "Licencia de Obra" },
-    { value: "licencia_primera_ocupacion", label: "Licencia Primera Ocupación" },
-  ],
-  "Fiscales": [
-    { value: "ibi", label: "IBI (Impuesto Bienes Inmuebles)" },
-    { value: "plusvalia", label: "Plusvalía Municipal" },
-    { value: "modelo_210", label: "Modelo 210 (No Residentes)" },
-    { value: "modelo_600", label: "Modelo 600 (Transmisiones)" },
-    { value: "modelo_714", label: "Modelo 714 (Patrimonio)" },
-  ],
-  "Comunidad": [
-    { value: "estatutos_comunidad", label: "Estatutos Comunidad" },
-    { value: "acta_junta", label: "Acta Junta Propietarios" },
-    { value: "recibo_comunidad", label: "Recibo Comunidad" },
-    { value: "certificado_deudas_comunidad", label: "Certificado Deudas Comunidad" },
-  ],
-  "Inspecciones": [
-    { value: "informe_tasacion", label: "Informe de Tasación" },
-    { value: "inspeccion_tecnica", label: "Inspección Técnica (ITE)" },
-    { value: "informe_cedulas_ilegales", label: "Informe Cédulas Ilegales" },
-  ],
-  "Servicios": [
-    { value: "contrato_luz", label: "Contrato Luz/Electricidad" },
-    { value: "contrato_agua", label: "Contrato Agua" },
-    { value: "contrato_gas", label: "Contrato Gas" },
-    { value: "boletin_electrico", label: "Boletín Eléctrico" },
-  ],
-  "Identificación": [
-    { value: "dni", label: "DNI" },
-    { value: "nie", label: "NIE" },
-    { value: "pasaporte", label: "Pasaporte" },
-    { value: "poder_notarial", label: "Poder Notarial" },
-  ],
-  "Planos": [
-    { value: "plano_vivienda", label: "Plano de Vivienda" },
-    { value: "plano_catastral", label: "Plano Catastral" },
-    { value: "referencia_catastral", label: "Referencia Catastral" },
-    { value: "proyecto_tecnico", label: "Proyecto Técnico" },
-  ],
-  "Fotografías": [
-    { value: "foto_exterior", label: "Foto Exterior" },
-    { value: "foto_interior", label: "Foto Interior" },
-    { value: "foto_defecto", label: "Foto de Defecto/Daño" },
-  ],
-  "Seguros": [
-    { value: "seguro_hogar", label: "Seguro de Hogar" },
-    { value: "seguro_vida", label: "Seguro de Vida" },
-    { value: "seguro_decenal", label: "Seguro Decenal" },
-  ],
-  "Otros": [
-    { value: "recibo_pago", label: "Recibo de Pago" },
-    { value: "factura", label: "Factura" },
-    { value: "presupuesto", label: "Presupuesto" },
-    { value: "otro", label: "Otro" },
-  ],
-}
+// Document types are imported from the centralized config
+// These match the compliance/risk assessment categories
 
 interface DocumentDetailProps {
   document: Document
@@ -187,8 +112,7 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const updateMutation = trpc.documents.update.useMutation({
     onSuccess: (updated) => {
       toast.success("Document updated successfully")
-      utils.documents.search.invalidate()
-      utils.documents.listAll.invalidate()
+      invalidateDocumentQueries(utils)
       // Convert date strings back to Date objects (tRPC serializes dates as strings)
       const mappedDocument: Document = {
         ...updated,
@@ -220,8 +144,7 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const deleteMutation = trpc.documents.delete.useMutation({
     onSuccess: () => {
       toast.success("Document deleted successfully")
-      utils.documents.search.invalidate()
-      utils.documents.listAll.invalidate()
+      invalidateDocumentQueries(utils)
       onClose()
     },
     onError: (error) => {

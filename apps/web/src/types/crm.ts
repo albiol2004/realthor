@@ -534,6 +534,7 @@ export interface Document {
   id: string
   userId: string
   filename: string
+  displayName?: string // Custom user-friendly name (falls back to filename)
   fileUrl: string
   fileSize?: number // Bytes
   fileType?: string // MIME type
@@ -573,6 +574,7 @@ export interface Document {
 
 export interface CreateDocumentInput {
   filename: string
+  displayName?: string // Custom user-friendly name
   fileUrl: string
   fileSize?: number
   fileType?: string

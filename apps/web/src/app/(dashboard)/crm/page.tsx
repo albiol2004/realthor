@@ -76,6 +76,15 @@ export default function CRMPage() {
 
   // Queries
   const { data: contactsData, isLoading: isLoadingContacts } = trpc.contacts.list.useQuery(filters)
+
+  // Fetch ALL contacts without category filter for accurate counts
+  const { data: allContactsData } = trpc.contacts.list.useQuery({
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+    limit: 1000, // High limit to get all contacts for counting
+    offset: 0,
+  })
+
   const { data: selectedContact, isLoading: isLoadingContact } = trpc.contacts.getById.useQuery(
     { id: selectedContactId! },
     { enabled: !!selectedContactId }
@@ -184,11 +193,12 @@ export default function CRMPage() {
 
   const contacts = contactsData?.contacts || []
   const totalContacts = contactsData?.total || 0
+  const allContacts = allContactsData?.contacts || []
 
-  // Get category counts
+  // Get category counts from ALL contacts, not filtered ones
   const getCategoryCount = (category: ContactCategory | 'all') => {
-    if (category === 'all') return totalContacts
-    return contacts.filter((c) => c.category === category).length
+    if (category === 'all') return allContactsData?.total || 0
+    return allContacts.filter((c) => c.category === category).length
   }
 
   return (
@@ -219,36 +229,36 @@ export default function CRMPage() {
         {/* Category Tabs */}
         <div className="flex-shrink-0 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 px-4">
           <div className="flex items-center gap-2 overflow-x-auto py-3">
-              {CATEGORIES.map((category) => {
-                const isSelected = selectedCategory === category
-                const count = getCategoryCount(category)
-                const label = category === 'all' ? 'All Contacts' : getContactCategoryLabel(category)
+            {CATEGORIES.map((category) => {
+              const isSelected = selectedCategory === category
+              const count = getCategoryCount(category)
+              const label = category === 'all' ? 'All Contacts' : getContactCategoryLabel(category)
 
-                return (
-                  <Button
-                    key={category}
-                    variant={isSelected ? 'default' : 'ghost'}
-                    onClick={() => setSelectedCategory(category)}
-                    className={cn(
-                      'gap-2 whitespace-nowrap',
-                      isSelected && 'bg-black dark:bg-white text-white dark:text-black'
-                    )}
-                  >
-                    <Users className="h-4 w-4" />
-                    {label}
-                    {!searchQuery && (
-                      <span className={cn(
-                        'text-xs px-2 py-0.5 rounded-full',
-                        isSelected
-                          ? 'bg-white/20 dark:bg-black/20'
-                          : 'bg-gray-100 dark:bg-gray-800'
-                      )}>
-                        {count}
-                      </span>
-                    )}
-                  </Button>
-                )
-              })}
+              return (
+                <Button
+                  key={category}
+                  variant={isSelected ? 'default' : 'ghost'}
+                  onClick={() => setSelectedCategory(category)}
+                  className={cn(
+                    'gap-2 whitespace-nowrap',
+                    isSelected && 'bg-black dark:bg-white text-white dark:text-black'
+                  )}
+                >
+                  <Users className="h-4 w-4" />
+                  {label}
+                  {!searchQuery && (
+                    <span className={cn(
+                      'text-xs px-2 py-0.5 rounded-full',
+                      isSelected
+                        ? 'bg-white/20 dark:bg-black/20'
+                        : 'bg-gray-100 dark:bg-gray-800'
+                    )}>
+                      {count}
+                    </span>
+                  )}
+                </Button>
+              )
+            })}
 
           </div>
         </div>
@@ -265,13 +275,13 @@ export default function CRMPage() {
                   </div>
                 ) : contacts.length > 0 ? (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {contacts.map((contact) => (
-                    <ContactCard
-                      key={contact.id}
-                      contact={contact as any}
-                      isSelected={contact.id === selectedContactId}
-                      onClick={() => setSelectedContactId(contact.id)}
-                    />
+                    {contacts.map((contact) => (
+                      <ContactCard
+                        key={contact.id}
+                        contact={contact as any}
+                        isSelected={contact.id === selectedContactId}
+                        onClick={() => setSelectedContactId(contact.id)}
+                      />
                     ))}
                   </div>
                 ) : (

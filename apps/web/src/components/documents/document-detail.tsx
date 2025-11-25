@@ -41,6 +41,7 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const utils = trpc.useUtils()
 
   // Editable metadata state
+  const [displayName, setDisplayName] = useState(document.displayName || document.filename)
   const [documentType, setDocumentType] = useState<DocumentType | undefined>(document.documentType)
   const [documentDate, setDocumentDate] = useState<Date | undefined>(document.documentDate)
   const [dueDate, setDueDate] = useState<Date | undefined>(document.dueDate)
@@ -125,12 +126,12 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
         extractedDates: updated.extractedDates?.map((d) => new Date(d)) || [],
         aiMetadata: updated.aiMetadata
           ? {
-              ...updated.aiMetadata,
-              dates: updated.aiMetadata.dates?.map((d: any) => ({
-                ...d,
-                date: new Date(d.date),
-              })),
-            }
+            ...updated.aiMetadata,
+            dates: updated.aiMetadata.dates?.map((d: any) => ({
+              ...d,
+              date: new Date(d.date),
+            })),
+          }
           : undefined,
       }
       onUpdate(mappedDocument)
@@ -192,6 +193,7 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
 
     updateMutation.mutate({
       id: document.id,
+      displayName: displayName.trim() || document.filename, // Save displayName or fall back to filename
       documentType: documentType || "otro", // Default to "otro" if empty
       documentDate: documentDate,
       dueDate: dueDate,
@@ -232,7 +234,7 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
       <div className="p-4 border-b">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold truncate">{document.filename}</h2>
+            <h2 className="text-lg font-semibold truncate">{document.displayName || document.filename}</h2>
             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
               <span>{document.fileType}</span>
               <span>•</span>
@@ -324,6 +326,23 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
           <TabsContent value="details" className="p-4 m-0">
             <div className="space-y-6 max-w-3xl">
               <div className="space-y-6">
+                {/* Document Display Name - Editable */}
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Nombre del Documento</Label>
+                  <Input
+                    id="displayName"
+                    placeholder="Nombre friendly para este documento"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Este nombre se mostrará en lugar del nombre de archivo original
+                    {document.filename !== document.displayName && (
+                      <span className="block mt-1">Archivo original: {document.filename}</span>
+                    )}
+                  </p>
+                </div>
+
                 {/* Document Type - Comprehensive Spanish Types */}
                 <div className="space-y-2">
                   <Label htmlFor="documentType">Tipo de Documento</Label>

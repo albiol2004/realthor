@@ -288,6 +288,7 @@ export const documentTypeSchema = z.enum([
 // Create document schema
 export const createDocumentSchema = z.object({
   filename: z.string().min(1, 'Filename is required').max(255),
+  displayName: z.string().max(255).optional(), // Custom user-friendly name
   fileUrl: z.string().url('Invalid file URL'),
   fileSize: z.number().int().positive().optional(),
   fileType: z.string().max(100).optional(),

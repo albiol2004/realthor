@@ -21,6 +21,7 @@ interface DocumentUploadDialogProps {
 
 export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId }: DocumentUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null)
+  const [customName, setCustomName] = useState("")
   const [category, setCategory] = useState<DocumentType>("otro")
   const [isUploading, setIsUploading] = useState(false)
 
@@ -59,6 +60,11 @@ export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId
       const formData = new FormData()
       formData.append("file", file)
       formData.append("category", category)
+
+      // Add custom name if provided
+      if (customName.trim()) {
+        formData.append("displayName", customName.trim())
+      }
 
       // Add entity linking if provided
       if (contactId) {
@@ -112,6 +118,7 @@ export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId
   // Handle close
   const handleClose = () => {
     setFile(null)
+    setCustomName("")
     setCategory("otro")
     onOpenChange(false)
   }
@@ -172,6 +179,21 @@ export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Custom Document Name */}
+          <div>
+            <Label htmlFor="customName">Document Name (Optional)</Label>
+            <Input
+              id="customName"
+              placeholder="e.g., John's Passport, Property Title Deed"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              className="mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter a friendly name for this document. If left blank, the original filename will be used.
+            </p>
           </div>
 
           {/* Category */}

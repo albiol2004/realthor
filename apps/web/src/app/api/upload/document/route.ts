@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get("file") as File
     const category = formData.get("category") as string || "other"
+    const displayName = formData.get("displayName") as string | null // Custom document name
     const entityType = formData.get("entityType") as string | null
     const entityId = formData.get("entityId") as string | null
 
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
     const documentData: any = {
       user_id: user.id,
       filename: file.name,
+      display_name: displayName?.trim() || file.name, // Use custom name or fall back to filename
       file_url: fileUrl,
       file_size: file.size,
       file_type: file.type,

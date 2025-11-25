@@ -1,30 +1,92 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 import { nanoid } from "nanoid"
+
+// Increase body size limit for file uploads (50MB)
+export const runtime = 'nodejs'
+export const maxDuration = 60 // Max execution time in seconds
 
 export async function POST(request: NextRequest) {
   try {
-    // Get authenticated user
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
 
-    if (authError || !user) {
+
+    // IMPORTANT: Parse form data FIRST, before calling any Next.js functions
+    // This prevents "Response body disturbed or locked" error in Next.js 16 VPS deployments
+    const formData = await request.formData()
+
+
+    const file = formData.get("file") as File
+    const category = formData.get("category") as string || "other"
+    const displayName = formData.get("displayName") as string | null
+    const entityType = formData.get("entityType") as string | null
+    const entityId = formData.get("entityId") as string | null
+
+
+
+    // Alternative auth: Use Supabase client without cookies() to avoid body lock
+    // Get auth token from Authorization header or cookie value directly from request
+    const authHeader = request.headers.get('authorization')
+    const cookieHeader = request.headers.get('cookie')
+
+
+
+    let accessToken: string | null = null
+
+    if (authHeader?.startsWith('Bearer ')) {
+      accessToken = authHeader.substring(7)
+    } else if (cookieHeader) {
+      // Extract access token from cookie string manually (avoid cookies() call)
+      const match = cookieHeader.match(/sb-[^-]+-auth-token=([^;]+)/)
+
+      if (match) {
+        try {
+          let cookieValue = decodeURIComponent(match[1])
+
+          // Check if it's base64-encoded (Supabase sometimes stores it this way)
+          if (cookieValue.startsWith('base64-')) {
+            cookieValue = Buffer.from(cookieValue.substring(7), 'base64').toString('utf-8')
+          }
+
+          // Parse JSON to get access_token
+          const tokenData = JSON.parse(cookieValue)
+          accessToken = tokenData.access_token || tokenData[0]
+        } catch (e) {
+          // Last resort: try using the value directly (likely won't work)
+          accessToken = null
+        }
+      }
+    }
+
+    if (!accessToken) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized - No valid session found" },
         { status: 401 }
       )
     }
 
-    // Parse form data
-    const formData = await request.formData()
-    const file = formData.get("file") as File
-    const category = formData.get("category") as string || "other"
-    const displayName = formData.get("displayName") as string | null // Custom document name
-    const entityType = formData.get("entityType") as string | null
-    const entityId = formData.get("entityId") as string | null
+
+
+    // Create Supabase client with explicit token (no cookies() call)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      }
+    )
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized - Invalid session" },
+        { status: 401 }
+      )
+    }
 
     if (!file) {
       return NextResponse.json(

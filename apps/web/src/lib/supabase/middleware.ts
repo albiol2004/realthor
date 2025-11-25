@@ -128,6 +128,12 @@ async function hasActiveAccess(supabase: ReturnType<typeof createServerClient>, 
  * Handles cookie-based session management with proper request/response cookie handling
  */
 export async function updateSession(request: NextRequest) {
+  // Skip middleware entirely for document upload to prevent body lock issues in Next.js 16
+  // The upload route handles its own auth via headers/cookies manually
+  if (request.nextUrl.pathname === '/api/upload/document') {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })

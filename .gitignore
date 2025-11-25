@@ -15,6 +15,7 @@ build/
 .next/
 out/
 .turbo/
+.stignore
 
 # Environment variables
 .env

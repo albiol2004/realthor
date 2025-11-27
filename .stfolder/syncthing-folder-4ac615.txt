@@ -1,5 +1,0 @@
-# This directory is a Syncthing folder marker.
-# Do not delete.
-
-folderID: b2l2w-sq4fn
-created: 2025-11-18T13:06:43+01:00

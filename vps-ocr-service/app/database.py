@@ -319,8 +319,9 @@ class Database:
                     param_num += 1
 
                 if metadata.get("ai_metadata") is not None:
-                    update_fields.append(f"ai_metadata = ${param_num}")
-                    params.append(metadata["ai_metadata"])
+                    update_fields.append(f"ai_metadata = ${param_num}::jsonb")
+                    import json
+                    params.append(json.dumps(metadata["ai_metadata"]))
                     param_num += 1
 
                 if metadata.get("ai_confidence") is not None:

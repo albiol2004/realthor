@@ -164,6 +164,68 @@ export class DocumentsService {
   }): Promise<Document[]> {
     return await documentsRepository.search(userId, params)
   }
+
+  /**
+   * Trigger AI labeling for a document
+   *
+   * Creates a job in the ai_labeling_queue for the VPS service to process
+   */
+  async labelWithAI(userId: string, documentId: string): Promise<{ success: boolean; message: string }> {
+    // Check if document exists and belongs to user
+    const document = await documentsRepository.findById(userId, documentId)
+    if (!document) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Document not found',
+      })
+    }
+
+    // Check if OCR has been completed
+    if (!document.ocrText || document.ocrStatus !== 'completed') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Document must have OCR text before AI labeling. Please wait for OCR to complete.',
+      })
+    }
+
+    // Check if AI labeling is already in progress for this document
+    const supabase = await createClient()
+    const { data: existingJob } = await supabase
+      .from('ai_labeling_queue')
+      .select('id, status')
+      .eq('document_id', documentId)
+      .in('status', ['pending', 'processing'])
+      .single()
+
+    if (existingJob) {
+      return {
+        success: false,
+        message: 'AI labeling is already in progress for this document',
+      }
+    }
+
+    // Create AI labeling job
+    const { error: insertError } = await supabase
+      .from('ai_labeling_queue')
+      .insert({
+        document_id: documentId,
+        user_id: userId,
+        trigger_type: 'manual',
+      })
+
+    if (insertError) {
+      console.error('Failed to create AI labeling job:', insertError)
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to queue AI labeling job',
+      })
+    }
+
+    return {
+      success: true,
+      message: 'AI labeling queued successfully. The document will be labeled shortly.',
+    }
+  }
 }
 
 export const documentsService = new DocumentsService()

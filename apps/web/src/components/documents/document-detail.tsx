@@ -153,6 +153,27 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
     },
   })
 
+  // Label with AI mutation
+  const labelWithAIMutation = trpc.documents.labelWithAI.useMutation({
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success(result.message)
+        // Invalidate queries to refetch updated document
+        invalidateDocumentQueries(utils)
+      } else {
+        toast.warning(result.message)
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to trigger AI labeling")
+    },
+  })
+
+  // Handle label with AI
+  const handleLabelWithAI = () => {
+    labelWithAIMutation.mutate({ id: document.id })
+  }
+
   // Contact search query
   const { data: contactResults, isLoading: isLoadingContacts, error: contactError } = trpc.contacts.search.useQuery(
     { query: contactSearch, limit: 10 },
@@ -251,6 +272,23 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Label with AI button - only show if OCR is completed */}
+            {document.ocrStatus === "completed" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLabelWithAI}
+                disabled={labelWithAIMutation.isPending || deleteMutation.isPending}
+                className="gap-2"
+              >
+                {labelWithAIMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Brain className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">Label with AI</span>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleDownload} disabled={deleteMutation.isPending}>
               <Download className="h-4 w-4" />
             </Button>

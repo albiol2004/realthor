@@ -83,4 +83,13 @@ export const documentsRouter = router({
     .query(async ({ ctx, input }) => {
       return await documentsService.search(ctx.user.id, input)
     }),
+
+  /**
+   * Trigger AI labeling for a document (manual trigger)
+   */
+  labelWithAI: subscribedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return await documentsService.labelWithAI(ctx.user.id, input.id)
+    }),
 })

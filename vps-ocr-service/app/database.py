@@ -284,13 +284,23 @@ class Database:
                     param_num += 1
 
                 if metadata.get("document_date") is not None:
+                    # Convert string date to Python date object if needed
+                    doc_date = metadata["document_date"]
+                    if isinstance(doc_date, str):
+                        from datetime import datetime
+                        doc_date = datetime.strptime(doc_date, "%Y-%m-%d").date()
                     update_fields.append(f"document_date = ${param_num}")
-                    params.append(metadata["document_date"])
+                    params.append(doc_date)
                     param_num += 1
 
                 if metadata.get("due_date") is not None:
+                    # Convert string date to Python date object if needed
+                    due_date = metadata["due_date"]
+                    if isinstance(due_date, str):
+                        from datetime import datetime
+                        due_date = datetime.strptime(due_date, "%Y-%m-%d").date()
                     update_fields.append(f"due_date = ${param_num}")
-                    params.append(metadata["due_date"])
+                    params.append(due_date)
                     param_num += 1
 
                 if metadata.get("description") is not None:

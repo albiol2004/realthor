@@ -13,8 +13,9 @@ import sys
 from app.config import settings
 from app.database import Database
 from app.ocr_worker import OCRWorker
-# Embeddings worker removed - no longer needed
+from app.ai_labeling_worker import AILabelingWorker
 from app.job_poller import JobPoller
+from app.ai_labeling_poller import AILabelingPoller
 from app.models import HealthResponse, QueueStats
 from app import __version__
 
@@ -37,7 +38,9 @@ if settings.log_file:
 
 # Global instances
 ocr_worker: OCRWorker = None
+ai_labeling_worker: AILabelingWorker = None
 job_poller: JobPoller = None
+ai_labeling_poller: AILabelingPoller = None
 
 
 @asynccontextmanager
@@ -47,40 +50,59 @@ async def lifespan(app: FastAPI):
 
     Startup:
     - Load ML models (OCR only)
+    - Load AI labeling worker (optional)
     - Connect to database
-    - Start job poller
+    - Start job pollers (OCR + AI labeling)
 
     Shutdown:
-    - Stop job poller
+    - Stop job pollers
     - Close database connections
     """
-    global ocr_worker, job_poller
+    global ocr_worker, ai_labeling_worker, job_poller, ai_labeling_poller
 
     logger.info("=" * 60)
-    logger.info(f"🚀 Starting Kairo VPS OCR Service v{__version__}")
+    logger.info(f"🚀 Starting Kairo VPS OCR + AI Labeling Service v{__version__}")
     logger.info(f"Instance ID: {settings.vps_instance_id}")
     logger.info(f"OCR Language: {settings.ocr_language}")
     logger.info(f"GPU Enabled: {settings.ocr_use_gpu}")
+    logger.info(f"AI Labeling Enabled: {settings.ai_labeling_enabled}")
     logger.info(f"Webhook Enabled: {settings.webhook_enabled}")
     logger.info("=" * 60)
 
     try:
         # Step 1: Connect to database
-        logger.info("[1/3] Connecting to database...")
+        logger.info("[1/5] Connecting to database...")
         await Database.connect()
 
         # Step 2: Load OCR models
-        logger.info("[2/3] Loading OCR models (PaddleOCR)...")
+        logger.info("[2/5] Loading OCR models (PaddleOCR)...")
         ocr_worker = OCRWorker()
 
-        # Step 3: Start job poller (embeddings removed)
-        logger.info("[3/3] Starting job poller...")
+        # Step 3: Load AI labeling worker (optional)
+        if settings.ai_labeling_enabled and settings.deepseek_api_key:
+            logger.info("[3/5] Loading AI labeling worker (Deepseek)...")
+            ai_labeling_worker = AILabelingWorker()
+        else:
+            logger.warning("[3/5] AI labeling disabled (missing DEEPSEEK_API_KEY)")
+
+        # Step 4: Start OCR job poller
+        logger.info("[4/5] Starting OCR job poller...")
         job_poller = JobPoller(ocr_worker)
         await job_poller.start()
 
+        # Step 5: Start AI labeling job poller (if AI labeling is enabled)
+        if ai_labeling_worker:
+            logger.info("[5/5] Starting AI labeling job poller...")
+            ai_labeling_poller = AILabelingPoller(ai_labeling_worker)
+            await ai_labeling_poller.start()
+        else:
+            logger.info("[5/5] Skipping AI labeling poller (AI labeling disabled)")
+
         logger.info("=" * 60)
-        logger.info("✅ OCR Service is ready to process documents!")
-        logger.info(f"📊 Polling interval: {settings.poll_interval_seconds}s")
+        logger.info("✅ Service is ready!")
+        logger.info(f"📊 OCR polling interval: {settings.poll_interval_seconds}s")
+        if ai_labeling_worker:
+            logger.info(f"🤖 AI labeling active (Deepseek)")
         logger.info("=" * 60)
 
         yield
@@ -91,20 +113,23 @@ async def lifespan(app: FastAPI):
 
     finally:
         # Shutdown
-        logger.info("🛑 Shutting down OCR service...")
+        logger.info("🛑 Shutting down service...")
 
         if job_poller:
             await job_poller.stop()
 
+        if ai_labeling_poller:
+            await ai_labeling_poller.stop()
+
         await Database.disconnect()
 
-        logger.info("✅ OCR service stopped")
+        logger.info("✅ Service stopped")
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="Kairo VPS OCR Service",
-    description="Document OCR processing for Kairo CRM (embeddings removed)",
+    title="Kairo VPS OCR + AI Labeling Service",
+    description="Document OCR processing and AI-powered labeling for Kairo CRM",
     version=__version__,
     lifespan=lifespan,
 )
@@ -114,10 +139,14 @@ app = FastAPI(
 async def root():
     """Root endpoint"""
     return {
-        "service": "Kairo VPS OCR Service",
+        "service": "Kairo VPS OCR + AI Labeling Service",
         "version": __version__,
         "status": "running",
         "instance_id": settings.vps_instance_id,
+        "features": {
+            "ocr": True,
+            "ai_labeling": settings.ai_labeling_enabled and settings.deepseek_api_key is not None,
+        }
     }
 
 

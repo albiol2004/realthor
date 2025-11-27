@@ -132,6 +132,25 @@ class JobPoller:
 
             logger.info(f"✅ Job completed: {job.document_id}")
 
+            # Step 3.5: Trigger AI labeling (automatic)
+            try:
+                from app.config import settings
+                if settings.ai_labeling_enabled and settings.deepseek_api_key:
+                    # Get user_id for the document
+                    user_id = await Database.get_document_user_id(job.document_id)
+                    if user_id:
+                        await Database.create_ai_labeling_job(
+                            document_id=job.document_id,
+                            user_id=user_id,
+                            trigger_type="auto"
+                        )
+                        logger.info(f"🤖 Triggered AI labeling for {job.document_id}")
+                    else:
+                        logger.warning(f"Could not get user_id for document {job.document_id}")
+            except Exception as ai_error:
+                # Don't fail the OCR job if AI labeling trigger fails
+                logger.error(f"Failed to trigger AI labeling: {ai_error}")
+
             # Step 4: Send webhook notification (optional)
             if self.webhook.enabled:
                 await self.webhook.notify_success(

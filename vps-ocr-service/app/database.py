@@ -152,3 +152,227 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get queue stats: {e}")
             return {"queued": 0, "processing": 0, "completed_today": 0, "failed": 0}
+
+    # ==================== AI LABELING QUEUE METHODS ====================
+
+    @classmethod
+    async def get_next_ai_labeling_job(cls, vps_instance_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get next AI labeling job from queue
+
+        Uses row-level locking to prevent duplicate processing
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                async with conn.transaction():
+                    # Find oldest pending job and lock it
+                    row = await conn.fetchrow(
+                        """
+                        SELECT
+                            q.id as queue_id,
+                            q.document_id,
+                            q.user_id,
+                            q.trigger_type,
+                            d.ocr_text
+                        FROM ai_labeling_queue q
+                        JOIN documents d ON d.id = q.document_id
+                        WHERE q.status = 'pending'
+                        ORDER BY q.created_at ASC
+                        LIMIT 1
+                        FOR UPDATE SKIP LOCKED
+                        """
+                    )
+
+                    if not row:
+                        return None
+
+                    # Update status to processing
+                    await conn.execute(
+                        """
+                        UPDATE ai_labeling_queue
+                        SET status = 'processing',
+                            processing_started_at = NOW()
+                        WHERE id = $1
+                        """,
+                        row["queue_id"],
+                    )
+
+                    return dict(row)
+
+        except Exception as e:
+            logger.error(f"Failed to get next AI labeling job: {e}")
+            return None
+
+    @classmethod
+    async def update_ai_labeling_job_status(
+        cls, queue_id: str, status: str, error_message: Optional[str] = None
+    ):
+        """Update AI labeling job status"""
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                if status == "completed":
+                    await conn.execute(
+                        """
+                        UPDATE ai_labeling_queue
+                        SET status = $1,
+                            completed_at = NOW(),
+                            error_message = NULL
+                        WHERE id = $2
+                        """,
+                        status,
+                        queue_id,
+                    )
+                elif status == "failed":
+                    await conn.execute(
+                        """
+                        UPDATE ai_labeling_queue
+                        SET status = $1,
+                            error_message = $2,
+                            retry_count = retry_count + 1
+                        WHERE id = $3
+                        """,
+                        status,
+                        error_message,
+                        queue_id,
+                    )
+                else:
+                    await conn.execute(
+                        """
+                        UPDATE ai_labeling_queue
+                        SET status = $1
+                        WHERE id = $2
+                        """,
+                        status,
+                        queue_id,
+                    )
+
+        except Exception as e:
+            logger.error(f"Failed to update AI labeling job status: {e}")
+            raise
+
+    @classmethod
+    async def save_ai_labeling_result(cls, document_id: str, metadata: Dict[str, Any]):
+        """
+        Save AI labeling result to document
+
+        Only updates non-null fields (as per requirements)
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                # Build dynamic UPDATE query based on non-null fields
+                update_fields = []
+                params = []
+                param_num = 1
+
+                if metadata.get("category") is not None:
+                    update_fields.append(f"category = ${param_num}")
+                    params.append(metadata["category"])
+                    param_num += 1
+
+                if metadata.get("extracted_names") is not None:
+                    update_fields.append(f"extracted_names = ${param_num}")
+                    params.append(metadata["extracted_names"])
+                    param_num += 1
+
+                if metadata.get("document_date") is not None:
+                    update_fields.append(f"document_date = ${param_num}")
+                    params.append(metadata["document_date"])
+                    param_num += 1
+
+                if metadata.get("due_date") is not None:
+                    update_fields.append(f"due_date = ${param_num}")
+                    params.append(metadata["due_date"])
+                    param_num += 1
+
+                if metadata.get("description") is not None:
+                    update_fields.append(f"description = ${param_num}")
+                    params.append(metadata["description"])
+                    param_num += 1
+
+                if metadata.get("has_signature") is not None:
+                    update_fields.append(f"has_signature = ${param_num}")
+                    params.append(metadata["has_signature"])
+                    param_num += 1
+
+                if metadata.get("importance_score") is not None:
+                    update_fields.append(f"importance_score = ${param_num}")
+                    params.append(metadata["importance_score"])
+                    param_num += 1
+
+                if metadata.get("ai_metadata") is not None:
+                    update_fields.append(f"ai_metadata = ${param_num}")
+                    params.append(metadata["ai_metadata"])
+                    param_num += 1
+
+                if metadata.get("ai_confidence") is not None:
+                    update_fields.append(f"ai_confidence = ${param_num}")
+                    params.append(metadata["ai_confidence"])
+                    param_num += 1
+
+                # Always update ai_processed_at
+                update_fields.append("ai_processed_at = NOW()")
+
+                # Add document_id as last param
+                params.append(document_id)
+
+                if update_fields:
+                    query = f"""
+                        UPDATE documents
+                        SET {', '.join(update_fields)}
+                        WHERE id = ${param_num}
+                    """
+
+                    await conn.execute(query, *params)
+
+            logger.info(f"✅ Saved AI labeling result for document {document_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to save AI labeling result: {e}")
+            raise
+
+    @classmethod
+    async def create_ai_labeling_job(
+        cls, document_id: str, user_id: str, trigger_type: str = "auto"
+    ) -> str:
+        """
+        Create a new AI labeling job
+
+        Returns the queue ID
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO ai_labeling_queue (document_id, user_id, trigger_type)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (document_id) WHERE status IN ('pending', 'processing')
+                    DO NOTHING
+                    RETURNING id
+                    """,
+                    document_id,
+                    user_id,
+                    trigger_type,
+                )
+
+                if row:
+                    logger.info(f"✅ Created AI labeling job for document {document_id}")
+                    return row["id"]
+                else:
+                    logger.info(f"⚠️  AI labeling job already exists for document {document_id}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Failed to create AI labeling job: {e}")
+            raise

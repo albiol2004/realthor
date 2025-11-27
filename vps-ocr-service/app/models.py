@@ -23,6 +23,24 @@ class OCRJob(BaseModel):
         return v
 
 
+class AILabelingJob(BaseModel):
+    """AI labeling job from queue"""
+
+    queue_id: str
+    document_id: str
+    user_id: str
+    ocr_text: str
+    trigger_type: str  # 'auto' or 'manual'
+
+    @field_validator('queue_id', 'document_id', 'user_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        """Convert UUID objects to strings"""
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+
+
 class OCRResult(BaseModel):
     """OCR processing result"""
 

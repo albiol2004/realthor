@@ -20,12 +20,16 @@ class Settings(BaseSettings):
     ocr_batch_size: int = 1
     max_file_size_mb: int = 50
 
-    # Embeddings
+    # Embeddings (deprecated but kept for backward compatibility)
     embeddings_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embeddings_device: str = "cpu"
     embeddings_chunk_size: int = 500
     embeddings_chunk_overlap: int = 50
     embeddings_batch_size: int = 8
+
+    # AI Labeling
+    deepseek_api_key: Optional[str] = None
+    ai_labeling_enabled: bool = True  # Enable/disable AI labeling feature
 
     # Queue
     poll_interval_seconds: int = 5

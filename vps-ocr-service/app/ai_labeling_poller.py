@@ -164,6 +164,7 @@ class AILabelingPoller:
             for name in extracted_names:
                 try:
                     # Step 1: Search for candidate contacts
+                    logger.info(f"🔍 Searching for contact: '{name}' (user_id: {user_id[:8]}...)")
                     candidates = await Database.search_contacts_by_name(
                         user_id=user_id,
                         name=name,
@@ -171,10 +172,10 @@ class AILabelingPoller:
                     )
 
                     if not candidates:
-                        logger.debug(f"No contact candidates found for '{name}'")
+                        logger.info(f"❌ No contact candidates found for '{name}'")
                         continue
 
-                    logger.debug(f"Found {len(candidates)} contact candidate(s) for '{name}'")
+                    logger.info(f"✅ Found {len(candidates)} contact candidate(s) for '{name}'")
 
                     # Step 2: Use AI to choose the best match
                     matched_contact_id = await self.contact_matcher.match_contact(
@@ -191,8 +192,10 @@ class AILabelingPoller:
                         if success:
                             matched_contacts.append(matched_contact_id)
                             logger.info(f"🔗 Linked contact {matched_contact_id} to document")
+                        else:
+                            logger.warning(f"⚠️ Failed to link contact {matched_contact_id} to document")
                     else:
-                        logger.debug(f"No confident match for '{name}', skipping auto-link")
+                        logger.info(f"⚠️ No confident match for '{name}', skipping auto-link")
 
                 except Exception as e:
                     logger.error(f"Failed to match contact for name '{name}': {e}")
@@ -203,8 +206,10 @@ class AILabelingPoller:
             logger.info(
                 f"✅ Auto-linked {len(matched_contacts)} contact(s) to document {document_id}"
             )
+        elif extracted_names:
+            logger.info(f"⚠️ No contacts auto-linked for document {document_id} (had {len(extracted_names)} extracted name(s))")
         else:
-            logger.debug(f"No contacts auto-linked for document {document_id}")
+            logger.info(f"ℹ️ No names extracted from document {document_id}, skipping contact matching")
 
         # TODO: Property matching from extracted_addresses
         # Similar logic to contact matching, but searching properties table

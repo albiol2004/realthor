@@ -409,6 +409,7 @@ class Database:
         try:
             # Split name into parts for better matching
             name_parts = name.strip().split()
+            logger.debug(f"Searching contacts: name='{name}', parts={name_parts}, user_id={user_id[:8]}...")
 
             async with cls._pool.acquire() as conn:
                 # Try multi-strategy search:
@@ -511,7 +512,9 @@ class Database:
                         limit,  # $4
                     )
 
-                return [dict(row) for row in rows]
+                results = [dict(row) for row in rows]
+                logger.debug(f"Contact search returned {len(results)} result(s) for '{name}'")
+                return results
 
         except Exception as e:
             logger.error(f"Failed to search contacts by name '{name}': {e}")

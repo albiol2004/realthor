@@ -8,8 +8,8 @@ to existing contacts in the database.
 import httpx
 import json
 from typing import List, Dict, Any, Optional
+from loguru import logger
 from app.config import settings
-from app.logger import logger
 
 
 class ContactMatchingWorker:

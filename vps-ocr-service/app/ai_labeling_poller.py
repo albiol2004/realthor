@@ -6,6 +6,7 @@ from loguru import logger
 from app.config import settings
 from app.database import Database
 from app.ai_labeling_worker import AILabelingWorker
+from app.contact_matching_worker import ContactMatchingWorker
 from app.models import AILabelingJob
 
 
@@ -19,6 +20,7 @@ class AILabelingPoller:
 
     def __init__(self, ai_worker: AILabelingWorker):
         self.ai_worker = ai_worker
+        self.contact_matcher = ContactMatchingWorker()  # AI-powered contact matching
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
 
@@ -148,18 +150,65 @@ class AILabelingPoller:
         """
         Match extracted names and addresses to contacts and properties
 
-        TODO: Implement this when we add contact/property matching service
-        For now, just log what was extracted
+        Uses AI-powered matching to intelligently link documents to contacts
         """
         extracted_names = metadata.get("extracted_names", [])
         extracted_addresses = metadata.get("extracted_addresses", [])
 
+        matched_contacts = []
+
+        # Match contacts from extracted names
         if extracted_names:
             logger.info(f"📝 Extracted names: {', '.join(extracted_names)}")
 
+            for name in extracted_names:
+                try:
+                    # Step 1: Search for candidate contacts
+                    candidates = await Database.search_contacts_by_name(
+                        user_id=user_id,
+                        name=name,
+                        limit=5  # Top 5 candidates
+                    )
+
+                    if not candidates:
+                        logger.debug(f"No contact candidates found for '{name}'")
+                        continue
+
+                    logger.debug(f"Found {len(candidates)} contact candidate(s) for '{name}'")
+
+                    # Step 2: Use AI to choose the best match
+                    matched_contact_id = await self.contact_matcher.match_contact(
+                        extracted_name=name,
+                        candidates=candidates
+                    )
+
+                    # Step 3: Link if confident match found
+                    if matched_contact_id:
+                        success = await Database.link_contact_to_document(
+                            document_id=document_id,
+                            contact_id=matched_contact_id
+                        )
+                        if success:
+                            matched_contacts.append(matched_contact_id)
+                            logger.info(f"🔗 Linked contact {matched_contact_id} to document")
+                    else:
+                        logger.debug(f"No confident match for '{name}', skipping auto-link")
+
+                except Exception as e:
+                    logger.error(f"Failed to match contact for name '{name}': {e}")
+                    continue
+
+        # Log matching summary
+        if matched_contacts:
+            logger.info(
+                f"✅ Auto-linked {len(matched_contacts)} contact(s) to document {document_id}"
+            )
+        else:
+            logger.debug(f"No contacts auto-linked for document {document_id}")
+
+        # TODO: Property matching from extracted_addresses
+        # Similar logic to contact matching, but searching properties table
         if extracted_addresses:
             logger.info(f"🏠 Extracted addresses: {', '.join(extracted_addresses)}")
-
-        # TODO: Call matching service to find contact/property IDs
-        # TODO: Update document.related_contact_ids and related_property_ids
-        pass
+            # Placeholder for future property matching implementation
+            pass

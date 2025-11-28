@@ -387,3 +387,171 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to create AI labeling job: {e}")
             raise
+
+    @classmethod
+    async def search_contacts_by_name(
+        cls, user_id: str, name: str, limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for contacts by name (fuzzy match)
+
+        Args:
+            user_id: User ID to filter contacts
+            name: Name to search for (e.g., "John Doe")
+            limit: Maximum number of results to return
+
+        Returns:
+            List of contact dictionaries with metadata
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            # Split name into parts for better matching
+            name_parts = name.strip().split()
+
+            async with cls._pool.acquire() as conn:
+                # Try multi-strategy search:
+                # 1. Exact full name match
+                # 2. First name + last name fuzzy match
+                # 3. Full name in either field (for single names or reversed names)
+
+                if len(name_parts) >= 2:
+                    first_term = name_parts[0]
+                    last_term = " ".join(name_parts[1:])
+
+                    rows = await conn.fetch(
+                        """
+                        SELECT
+                            id,
+                            first_name,
+                            last_name,
+                            email,
+                            phone,
+                            company,
+                            job_title,
+                            address_city,
+                            address_state,
+                            address_country,
+                            status,
+                            category,
+                            created_at
+                        FROM contacts
+                        WHERE user_id = $1
+                        AND (
+                            -- Exact match
+                            (LOWER(first_name) = LOWER($2) AND LOWER(last_name) = LOWER($3))
+                            -- Fuzzy match on first + last
+                            OR (first_name ILIKE $4 AND last_name ILIKE $5)
+                            -- Full name in last_name (reversed names)
+                            OR last_name ILIKE $6
+                            -- Full name in first_name
+                            OR first_name ILIKE $6
+                            -- Email match (if name looks like email)
+                            OR (email ILIKE $6 AND $7 = true)
+                        )
+                        ORDER BY
+                            -- Prioritize exact matches
+                            CASE
+                                WHEN LOWER(first_name) = LOWER($2) AND LOWER(last_name) = LOWER($3) THEN 1
+                                WHEN first_name ILIKE $4 AND last_name ILIKE $5 THEN 2
+                                ELSE 3
+                            END,
+                            created_at DESC
+                        LIMIT $8
+                        """,
+                        user_id,
+                        first_term,  # $2
+                        last_term,   # $3
+                        f"%{first_term}%",  # $4
+                        f"%{last_term}%",   # $5
+                        f"%{name}%",  # $6
+                        "@" in name,  # $7 - is email?
+                        limit,  # $8
+                    )
+                else:
+                    # Single name - search in both first and last name
+                    single_term = name_parts[0] if name_parts else name
+
+                    rows = await conn.fetch(
+                        """
+                        SELECT
+                            id,
+                            first_name,
+                            last_name,
+                            email,
+                            phone,
+                            company,
+                            job_title,
+                            address_city,
+                            address_state,
+                            address_country,
+                            status,
+                            category,
+                            created_at
+                        FROM contacts
+                        WHERE user_id = $1
+                        AND (
+                            first_name ILIKE $2
+                            OR last_name ILIKE $2
+                            OR email ILIKE $2
+                        )
+                        ORDER BY
+                            -- Exact matches first
+                            CASE
+                                WHEN LOWER(first_name) = LOWER($3) OR LOWER(last_name) = LOWER($3) THEN 1
+                                ELSE 2
+                            END,
+                            created_at DESC
+                        LIMIT $4
+                        """,
+                        user_id,
+                        f"%{single_term}%",  # $2
+                        single_term,  # $3
+                        limit,  # $4
+                    )
+
+                return [dict(row) for row in rows]
+
+        except Exception as e:
+            logger.error(f"Failed to search contacts by name '{name}': {e}")
+            return []
+
+    @classmethod
+    async def link_contact_to_document(
+        cls, document_id: str, contact_id: str
+    ) -> bool:
+        """
+        Link a contact to a document by adding to related_contact_ids array
+
+        Args:
+            document_id: Document ID
+            contact_id: Contact ID to link
+
+        Returns:
+            True if linked successfully, False otherwise
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                # Use PostgreSQL array append function
+                # Only add if not already present
+                await conn.execute(
+                    """
+                    UPDATE documents
+                    SET related_contact_ids = array_append(related_contact_ids, $1)
+                    WHERE id = $2
+                    AND NOT ($1 = ANY(related_contact_ids))
+                    """,
+                    contact_id,
+                    document_id,
+                )
+
+                logger.debug(f"✅ Linked contact {contact_id} to document {document_id}")
+                return True
+
+        except Exception as e:
+            logger.error(f"Failed to link contact to document: {e}")
+            return False

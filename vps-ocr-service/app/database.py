@@ -546,21 +546,32 @@ class Database:
 
         try:
             async with cls._pool.acquire() as conn:
-                # Use PostgreSQL array append function
-                # Only add if not already present
-                await conn.execute(
+                # Use PostgreSQL array concatenation operator ||
+                # COALESCE handles NULL arrays (converts NULL to empty array)
+                # Only add if not already present in array
+                result = await conn.execute(
                     """
                     UPDATE documents
-                    SET related_contact_ids = array_append(related_contact_ids, $1)
+                    SET related_contact_ids = COALESCE(related_contact_ids, ARRAY[]::uuid[]) || $1::uuid
                     WHERE id = $2
-                    AND NOT ($1 = ANY(related_contact_ids))
+                    AND (
+                        related_contact_ids IS NULL
+                        OR NOT ($1::uuid = ANY(related_contact_ids))
+                    )
                     """,
                     contact_id,
                     document_id,
                 )
 
-                logger.debug(f"✅ Linked contact {contact_id} to document {document_id}")
-                return True
+                # Check if any rows were updated
+                rows_updated = int(result.split()[-1]) if result else 0
+
+                if rows_updated > 0:
+                    logger.info(f"✅ Linked contact {contact_id} to document {document_id}")
+                    return True
+                else:
+                    logger.debug(f"Contact {contact_id} already linked to document {document_id}")
+                    return True  # Still return True since contact is linked
 
         except Exception as e:
             logger.error(f"Failed to link contact to document: {e}")

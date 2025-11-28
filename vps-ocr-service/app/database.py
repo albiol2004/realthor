@@ -440,26 +440,32 @@ class Database:
                         FROM contacts
                         WHERE user_id = $1
                         AND (
-                            -- Exact match
+                            -- Exact match (both first and last)
                             (LOWER(first_name) = LOWER($2) AND LOWER(last_name) = LOWER($3))
-                            -- Fuzzy match on first + last
-                            OR (first_name ILIKE $4 AND last_name ILIKE $5)
-                            -- Full name in last_name (reversed names)
+                            -- Fuzzy match on first name (use OR, not AND)
+                            OR first_name ILIKE $4
+                            -- Fuzzy match on last name with remaining terms
+                            OR last_name ILIKE $5
+                            -- Full name in last_name (reversed names like "Garcia Ramirez, Alejandro")
                             OR last_name ILIKE $6
                             -- Full name in first_name
                             OR first_name ILIKE $6
-                            -- Email match (if name looks like email)
-                            OR (email ILIKE $6 AND $7 = true)
+                            -- Email match
+                            OR email ILIKE $6
+                            -- Phone match
+                            OR phone ILIKE $6
+                            -- Company match
+                            OR company ILIKE $6
                         )
                         ORDER BY
                             -- Prioritize exact matches
                             CASE
                                 WHEN LOWER(first_name) = LOWER($2) AND LOWER(last_name) = LOWER($3) THEN 1
-                                WHEN first_name ILIKE $4 AND last_name ILIKE $5 THEN 2
+                                WHEN first_name ILIKE $4 OR last_name ILIKE $5 THEN 2
                                 ELSE 3
                             END,
                             created_at DESC
-                        LIMIT $8
+                        LIMIT $7
                         """,
                         user_id,
                         first_term,  # $2
@@ -467,11 +473,10 @@ class Database:
                         f"%{first_term}%",  # $4
                         f"%{last_term}%",   # $5
                         f"%{name}%",  # $6
-                        "@" in name,  # $7 - is email?
-                        limit,  # $8
+                        limit,  # $7
                     )
                 else:
-                    # Single name - search in both first and last name
+                    # Single name - search in all text fields
                     single_term = name_parts[0] if name_parts else name
 
                     rows = await conn.fetch(
@@ -496,6 +501,8 @@ class Database:
                             first_name ILIKE $2
                             OR last_name ILIKE $2
                             OR email ILIKE $2
+                            OR phone ILIKE $2
+                            OR company ILIKE $2
                         )
                         ORDER BY
                             -- Exact matches first

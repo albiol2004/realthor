@@ -42,6 +42,17 @@ export class PropertiesService {
   }
 
   /**
+   * Get multiple properties by IDs (efficient batch fetch)
+   */
+  async getByIds(userId: string, propertyIds: string[]): Promise<Property[]> {
+    if (propertyIds.length === 0) {
+      return []
+    }
+
+    return await propertiesRepository.findByIds(userId, propertyIds)
+  }
+
+  /**
    * Create a new property
    */
   async create(userId: string, input: CreatePropertyInput): Promise<Property> {

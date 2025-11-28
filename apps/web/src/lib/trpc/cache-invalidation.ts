@@ -6,6 +6,9 @@
  *
  * This is critical for desktop/Electron apps where users expect
  * immediate UI updates without manual refresh.
+ *
+ * IMPORTANT: Use specific instance invalidation when possible to avoid
+ * refetching unnecessary data. This improves responsiveness dramatically.
  */
 
 import { trpc } from '@/lib/trpc/client'
@@ -13,13 +16,46 @@ import { trpc } from '@/lib/trpc/client'
 type TRPCUtils = ReturnType<typeof trpc.useUtils>
 
 /**
+ * Specific instance invalidation options
+ */
+interface InvalidateDocumentOptions {
+  documentId?: string
+  entityType?: 'contact' | 'property' | 'deal'
+  entityId?: string
+}
+
+interface InvalidateContactOptions {
+  contactId?: string
+}
+
+interface InvalidateDealOptions {
+  dealId?: string
+}
+
+interface InvalidatePropertyOptions {
+  propertyId?: string
+}
+
+/**
  * Invalidate all contact-related queries
  * Call this after any contact mutation (create, update, delete)
+ *
+ * @param utils - tRPC utils from useUtils()
+ * @param options - Optional specific instance to invalidate
  */
-export function invalidateContactQueries(utils: TRPCUtils) {
-  // Invalidate contact lists and detail
+export function invalidateContactQueries(
+  utils: TRPCUtils,
+  options?: InvalidateContactOptions
+) {
+  // Invalidate contact lists (always)
   utils.contacts.list.invalidate()
-  utils.contacts.getById.invalidate()
+
+  // Invalidate specific contact or all contacts
+  if (options?.contactId) {
+    utils.contacts.getById.invalidate({ id: options.contactId })
+  } else {
+    utils.contacts.getById.invalidate()
+  }
 
   // Invalidate related entities that might show contact info
   utils.deals.list.invalidate() // Deals show contact names
@@ -30,12 +66,25 @@ export function invalidateContactQueries(utils: TRPCUtils) {
 /**
  * Invalidate all deal-related queries
  * Call this after any deal mutation (create, update, delete)
+ *
+ * @param utils - tRPC utils from useUtils()
+ * @param options - Optional specific instance to invalidate
  */
-export function invalidateDealQueries(utils: TRPCUtils) {
-  // Invalidate deal lists and detail
+export function invalidateDealQueries(
+  utils: TRPCUtils,
+  options?: InvalidateDealOptions
+) {
+  // Invalidate deal lists (always)
   utils.deals.list.invalidate()
-  utils.deals.getById.invalidate()
-  utils.deals.getCompliance.invalidate()
+
+  // Invalidate specific deal or all deals
+  if (options?.dealId) {
+    utils.deals.getById.invalidate({ id: options.dealId })
+    utils.deals.getCompliance.invalidate({ dealId: options.dealId })
+  } else {
+    utils.deals.getById.invalidate()
+    utils.deals.getCompliance.invalidate()
+  }
 
   // Invalidate contact views (they show deals)
   utils.contacts.getById.invalidate()
@@ -47,12 +96,33 @@ export function invalidateDealQueries(utils: TRPCUtils) {
 /**
  * Invalidate all document-related queries
  * Call this after any document mutation (upload, update, delete)
+ *
+ * @param utils - tRPC utils from useUtils()
+ * @param options - Optional specific instance to invalidate
  */
-export function invalidateDocumentQueries(utils: TRPCUtils) {
-  // Invalidate document queries
+export function invalidateDocumentQueries(
+  utils: TRPCUtils,
+  options?: InvalidateDocumentOptions
+) {
+  // Always invalidate search (affects all views)
   utils.documents.search.invalidate()
-  utils.documents.listByEntity.invalidate()
-  utils.documents.getById.invalidate()
+
+  // Invalidate specific document or all documents
+  if (options?.documentId) {
+    utils.documents.getById.invalidate({ id: options.documentId })
+  } else {
+    utils.documents.getById.invalidate()
+  }
+
+  // Invalidate entity-specific lists if provided
+  if (options?.entityType && options?.entityId) {
+    utils.documents.listByEntity.invalidate({
+      entityType: options.entityType,
+      entityId: options.entityId,
+    })
+  } else {
+    utils.documents.listByEntity.invalidate()
+  }
 
   // Invalidate compliance scores (they depend on documents)
   utils.deals.getCompliance.invalidate()
@@ -64,11 +134,23 @@ export function invalidateDocumentQueries(utils: TRPCUtils) {
 /**
  * Invalidate all property-related queries
  * Call this after any property mutation (create, update, delete)
+ *
+ * @param utils - tRPC utils from useUtils()
+ * @param options - Optional specific instance to invalidate
  */
-export function invalidatePropertyQueries(utils: TRPCUtils) {
-  // Invalidate property lists and detail
+export function invalidatePropertyQueries(
+  utils: TRPCUtils,
+  options?: InvalidatePropertyOptions
+) {
+  // Invalidate property lists (always)
   utils.properties.list.invalidate()
-  utils.properties.getById.invalidate()
+
+  // Invalidate specific property or all properties
+  if (options?.propertyId) {
+    utils.properties.getById.invalidate({ id: options.propertyId })
+  } else {
+    utils.properties.getById.invalidate()
+  }
 
   // Invalidate deals (they show property info)
   utils.deals.list.invalidate()

@@ -32,6 +32,15 @@ export const propertiesRouter = router({
     }),
 
   /**
+   * Get multiple properties by IDs (efficient batch fetch)
+   */
+  getByIds: subscribedProcedure
+    .input(z.object({ ids: z.array(z.string().uuid()).max(100) }))
+    .query(async ({ ctx, input }) => {
+      return await propertiesService.getByIds(ctx.user.id, input.ids)
+    }),
+
+  /**
    * Create a new property
    */
   create: subscribedProcedure

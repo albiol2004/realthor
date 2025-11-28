@@ -111,10 +111,15 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
 
   // Update mutation
   const updateMutation = trpc.deals.update.useMutation({
-    onSuccess: (updated) => {
+    onSuccess: async (updated) => {
       toast.success('Deal updated successfully')
-      invalidateDealQueries(utils)
-      onUpdate(updated)
+
+      // Directly update the cache with server response
+      utils.deals.getById.setData({ id: updated.id }, updated)
+
+      // Invalidate lists
+      await utils.deals.list.invalidate()
+
       setIsEditing(false)
     },
     onError: (error) => {
@@ -126,7 +131,8 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
   const deleteMutation = trpc.deals.delete.useMutation({
     onSuccess: () => {
       toast.success('Deal deleted')
-      invalidateDealQueries(utils)
+      // Use specific invalidation
+      invalidateDealQueries(utils, { dealId: deal.id })
       onClose()
     },
     onError: (error) => {
@@ -136,24 +142,89 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
 
   // Add contact mutation
   const addContactMutation = trpc.deals.addContact.useMutation({
-    onSuccess: () => {
+    onMutate: async ({ dealId, contactId }) => {
+      // Cancel outgoing refetches
+      await utils.deals.getById.cancel({ id: dealId })
+
+      // Snapshot previous value
+      const previousDeal = utils.deals.getById.getData({ id: dealId })
+
+      // Optimistically update to show immediate feedback
+      if (previousDeal) {
+        utils.deals.getById.setData({ id: dealId }, {
+          ...previousDeal,
+          contactIds: [...(previousDeal.contactIds || []), contactId]
+        })
+      }
+
+      return { previousDeal }
+    },
+    onSuccess: async (_, { dealId }) => {
       toast.success('Contact added to deal')
-      invalidateDealQueries(utils)
+
+      // Force fetch from server (bypasses cache) and update
+      const freshDeal = await utils.deals.getById.fetch({ id: dealId })
+      if (freshDeal) {
+        utils.deals.getById.setData({ id: dealId }, freshDeal)
+      }
+
+      // Refetch compliance
+      const freshCompliance = await utils.deals.getCompliance.fetch({ dealId })
+      if (freshCompliance) {
+        utils.deals.getCompliance.setData({ dealId }, freshCompliance)
+      }
+
       setContactSearch('')
       setContactOpen(false)
     },
-    onError: (error) => {
+    onError: (error, { dealId }, context) => {
+      // Rollback on error
+      if (context?.previousDeal) {
+        utils.deals.getById.setData({ id: dealId }, context.previousDeal)
+      }
       toast.error(error.message || 'Error adding contact')
     },
   })
 
   // Remove contact mutation
   const removeContactMutation = trpc.deals.removeContact.useMutation({
-    onSuccess: () => {
-      toast.success('Contact removed from deal')
-      invalidateDealQueries(utils)
+    onMutate: async ({ dealId, contactId }) => {
+      // Cancel outgoing refetches
+      await utils.deals.getById.cancel({ id: dealId })
+
+      // Snapshot previous value
+      const previousDeal = utils.deals.getById.getData({ id: dealId })
+
+      // Optimistically update
+      if (previousDeal) {
+        utils.deals.getById.setData({ id: dealId }, {
+          ...previousDeal,
+          contactIds: (previousDeal.contactIds || []).filter((id: string) => id !== contactId)
+        })
+      }
+
+      return { previousDeal }
     },
-    onError: (error) => {
+    onSuccess: async (_, { dealId }) => {
+      toast.success('Contact removed from deal')
+
+      // Force fetch from server (bypasses cache) and update
+      const freshDeal = await utils.deals.getById.fetch({ id: dealId })
+      if (freshDeal) {
+        utils.deals.getById.setData({ id: dealId }, freshDeal)
+      }
+
+      // Refetch compliance
+      const freshCompliance = await utils.deals.getCompliance.fetch({ dealId })
+      if (freshCompliance) {
+        utils.deals.getCompliance.setData({ dealId }, freshCompliance)
+      }
+    },
+    onError: (error, { dealId }, context) => {
+      // Rollback on error
+      if (context?.previousDeal) {
+        utils.deals.getById.setData({ id: dealId }, context.previousDeal)
+      }
       toast.error(error.message || 'Error removing contact')
     },
   })

@@ -147,6 +147,26 @@ export class ContactsRepository {
   }
 
   /**
+   * Get multiple contacts by IDs (efficient batch fetch)
+   */
+  async findByIds(userId: string, contactIds: string[]): Promise<Contact[]> {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .in('id', contactIds)
+      .eq('user_id', userId)
+
+    if (error) {
+      console.error('[ContactsRepository] Error finding contacts by IDs:', error)
+      throw new Error(`Failed to find contacts: ${error.message}`)
+    }
+
+    return (data || []).map(this.mapToContact)
+  }
+
+  /**
    * Find contact by email
    */
   async findByEmail(userId: string, email: string): Promise<Contact | null> {

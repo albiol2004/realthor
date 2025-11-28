@@ -40,6 +40,10 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const [activeTab, setActiveTab] = useState("viewer")
   const utils = trpc.useUtils()
 
+  // AI labeling state
+  const [isAILabelingInProgress, setIsAILabelingInProgress] = useState(false)
+  const [aiLabelingStartTime, setAiLabelingStartTime] = useState<number | null>(null)
+
   // Editable metadata state
   const [displayName, setDisplayName] = useState(document.displayName || document.filename)
   const [documentType, setDocumentType] = useState<DocumentType | undefined>(document.documentType)
@@ -60,30 +64,70 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const [contactOpen, setContactOpen] = useState(false)
   const [propertyOpen, setPropertyOpen] = useState(false)
 
-  // Fetch contact details for relatedContactIds
-  const { data: relatedContacts } = trpc.contacts.list.useQuery(
-    { limit: 100 }, // Get enough to find all related contacts
-    { enabled: !contactsLoaded && document.relatedContactIds.length > 0 }
+  // Poll for AI labeling completion
+  // This query only runs when AI labeling is in progress
+  const { data: polledDocument } = trpc.documents.getById.useQuery(
+    { id: document.id },
+    {
+      enabled: isAILabelingInProgress,
+      refetchInterval: 3000, // Poll every 3 seconds
+    }
   )
 
-  // Fetch property details for relatedPropertyIds
-  const { data: relatedProperties } = trpc.properties.list.useQuery(
-    { limit: 100 }, // Get enough to find all related properties
-    { enabled: !propertiesLoaded && document.relatedPropertyIds.length > 0 }
+  // Watch for AI labeling completion
+  useEffect(() => {
+    if (!isAILabelingInProgress || !polledDocument) return
+
+    // Check if AI processing completed
+    if (polledDocument.aiProcessedAt) {
+      setIsAILabelingInProgress(false)
+      setAiLabelingStartTime(null)
+      toast.success("AI labeling completed!")
+
+      // Directly update the cache with the polled document
+      utils.documents.getById.setData({ id: polledDocument.id }, polledDocument)
+
+      // Invalidate lists to show updated data
+      utils.documents.search.invalidate()
+      utils.documents.listByEntity.invalidate()
+    }
+
+    // Timeout after 2 minutes
+    if (aiLabelingStartTime && Date.now() - aiLabelingStartTime > 120000) {
+      setIsAILabelingInProgress(false)
+      setAiLabelingStartTime(null)
+      toast.warning("AI labeling is taking longer than expected. Check back in a few minutes.")
+    }
+  }, [polledDocument, isAILabelingInProgress, aiLabelingStartTime, utils])
+
+  // Fetch contact details for relatedContactIds (efficient batch fetch)
+  const { data: relatedContacts } = trpc.contacts.getByIds.useQuery(
+    { ids: document.relatedContactIds },
+    {
+      enabled: !contactsLoaded && document.relatedContactIds.length > 0,
+      staleTime: 1000 * 60, // Cache for 1 minute
+    }
+  )
+
+  // Fetch property details for relatedPropertyIds (efficient batch fetch)
+  const { data: relatedProperties } = trpc.properties.getByIds.useQuery(
+    { ids: document.relatedPropertyIds },
+    {
+      enabled: !propertiesLoaded && document.relatedPropertyIds.length > 0,
+      staleTime: 1000 * 60, // Cache for 1 minute
+    }
   )
 
   // Initialize selectedContacts from document.relatedContactIds
   useEffect(() => {
     if (relatedContacts && document.relatedContactIds.length > 0 && !contactsLoaded) {
-      const matchedContacts = relatedContacts.contacts
-        .filter(c => document.relatedContactIds.includes(c.id))
-        .map(c => ({
-          id: c.id,
-          firstName: c.firstName,
-          lastName: c.lastName,
-          email: c.email,
-        }))
-      setSelectedContacts(matchedContacts)
+      const mappedContacts = relatedContacts.map(c => ({
+        id: c.id,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        email: c.email,
+      }))
+      setSelectedContacts(mappedContacts)
       setContactsLoaded(true)
     } else if (document.relatedContactIds.length === 0 && !contactsLoaded) {
       setSelectedContacts([])
@@ -94,14 +138,12 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   // Initialize selectedProperties from document.relatedPropertyIds
   useEffect(() => {
     if (relatedProperties && document.relatedPropertyIds.length > 0 && !propertiesLoaded) {
-      const matchedProperties = relatedProperties.properties
-        .filter(p => document.relatedPropertyIds.includes(p.id))
-        .map(p => ({
-          id: p.id,
-          title: p.title,
-          address: p.address,
-        }))
-      setSelectedProperties(matchedProperties)
+      const mappedProperties = relatedProperties.map(p => ({
+        id: p.id,
+        title: p.title,
+        address: p.address,
+      }))
+      setSelectedProperties(mappedProperties)
       setPropertiesLoaded(true)
     } else if (document.relatedPropertyIds.length === 0 && !propertiesLoaded) {
       setSelectedProperties([])
@@ -111,30 +153,15 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
 
   // Update mutation
   const updateMutation = trpc.documents.update.useMutation({
-    onSuccess: (updated) => {
+    onSuccess: async (updated) => {
       toast.success("Document updated successfully")
-      invalidateDocumentQueries(utils)
-      // Convert date strings back to Date objects (tRPC serializes dates as strings)
-      const mappedDocument: Document = {
-        ...updated,
-        createdAt: new Date(updated.createdAt),
-        updatedAt: new Date(updated.updatedAt),
-        documentDate: updated.documentDate ? new Date(updated.documentDate) : undefined,
-        dueDate: updated.dueDate ? new Date(updated.dueDate) : undefined,
-        ocrProcessedAt: updated.ocrProcessedAt ? new Date(updated.ocrProcessedAt) : undefined,
-        aiProcessedAt: updated.aiProcessedAt ? new Date(updated.aiProcessedAt) : undefined,
-        extractedDates: updated.extractedDates?.map((d) => new Date(d)) || [],
-        aiMetadata: updated.aiMetadata
-          ? {
-            ...updated.aiMetadata,
-            dates: updated.aiMetadata.dates?.map((d: any) => ({
-              ...d,
-              date: new Date(d.date),
-            })),
-          }
-          : undefined,
-      }
-      onUpdate(mappedDocument)
+
+      // Directly update the cache with server response
+      utils.documents.getById.setData({ id: updated.id }, updated)
+
+      // Also invalidate lists to ensure they refresh
+      await utils.documents.search.invalidate()
+      await utils.documents.listByEntity.invalidate()
     },
     onError: (error) => {
       toast.error(error.message || "Failed to update document")
@@ -145,7 +172,14 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const deleteMutation = trpc.documents.delete.useMutation({
     onSuccess: () => {
       toast.success("Document deleted successfully")
-      invalidateDocumentQueries(utils)
+
+      // Use specific instance invalidation
+      invalidateDocumentQueries(utils, {
+        documentId: document.id,
+        entityType: document.entityType as any,
+        entityId: document.entityId
+      })
+
       onClose()
     },
     onError: (error) => {
@@ -155,22 +189,35 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
 
   // Label with AI mutation
   const labelWithAIMutation = trpc.documents.labelWithAI.useMutation({
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result.success) {
-        toast.success(result.message)
-        // Invalidate queries to refetch updated document
-        invalidateDocumentQueries(utils)
+        // Dismiss the "Queueing..." toast and show success
+        toast.success("AI labeling queued! Processing in background...")
+
+        // Force immediate refetch to get the queued status
+        await utils.documents.getById.refetch({ id: document.id })
+
+        // Polling state already set in handleLabelWithAI
       } else {
         toast.warning(result.message)
+        setIsAILabelingInProgress(false)
+        setAiLabelingStartTime(null)
       }
     },
     onError: (error) => {
       toast.error(error.message || "Failed to trigger AI labeling")
+      setIsAILabelingInProgress(false)
+      setAiLabelingStartTime(null)
     },
   })
 
   // Handle label with AI
   const handleLabelWithAI = () => {
+    // Show immediate visual feedback BEFORE the network request
+    setIsAILabelingInProgress(true)
+    setAiLabelingStartTime(Date.now())
+    toast.info("Queueing AI labeling job...")
+
     labelWithAIMutation.mutate({ id: document.id })
   }
 
@@ -278,15 +325,17 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
                 variant="outline"
                 size="sm"
                 onClick={handleLabelWithAI}
-                disabled={labelWithAIMutation.isPending || deleteMutation.isPending}
+                disabled={labelWithAIMutation.isPending || isAILabelingInProgress || deleteMutation.isPending}
                 className="gap-2"
               >
-                {labelWithAIMutation.isPending ? (
+                {labelWithAIMutation.isPending || isAILabelingInProgress ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Brain className="h-4 w-4" />
                 )}
-                <span className="hidden sm:inline">Label with AI</span>
+                <span className="hidden sm:inline">
+                  {isAILabelingInProgress ? "Processing..." : "Label with AI"}
+                </span>
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={handleDownload} disabled={deleteMutation.isPending}>

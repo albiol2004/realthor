@@ -33,7 +33,28 @@ import superjson from 'superjson'
 // ... imports
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient())
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            // Desktop-app-like responsiveness settings
+            staleTime: 1000 * 10, // 10 seconds - data is fresh for this long
+            gcTime: 1000 * 60 * 5, // 5 minutes - cache persists for this long
+            refetchOnWindowFocus: true, // Refetch when window regains focus
+            refetchOnReconnect: true, // Refetch when internet reconnects
+            retry: 1, // Only retry failed requests once (faster failure feedback)
+            retryDelay: 500, // 500ms between retries
+            networkMode: 'offlineFirst', // Use cache while network request is pending
+          },
+          mutations: {
+            retry: 0, // Don't retry mutations (avoid duplicate operations)
+            networkMode: 'online', // Only run mutations when online
+          },
+        },
+      })
+  )
+
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [

@@ -9,32 +9,39 @@ import { trpc } from "@/lib/trpc/client"
 import type { Document } from "@/types/crm"
 
 export default function DocumentsPage() {
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  // Store only the selected document ID, not the full document
+  // This allows the query to automatically refetch when invalidated
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | undefined>(undefined)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const searchParams = useSearchParams()
 
   // Get document ID from URL parameter for deep linking
   const documentIdFromUrl = searchParams.get('id')
 
-  // Fetch document from URL if provided (for deep linking from contact page)
-  const { data: documentFromUrl } = trpc.documents.getById.useQuery(
-    { id: documentIdFromUrl! },
-    { enabled: !!documentIdFromUrl && !selectedDocument }
+  // Fetch the selected document reactively
+  // When queries are invalidated, this automatically refetches
+  const { data: selectedDocument } = trpc.documents.getById.useQuery(
+    { id: selectedDocumentId! },
+    {
+      enabled: !!selectedDocumentId,
+      // Refetch when window regains focus (desktop-app behavior)
+      refetchOnWindowFocus: true,
+    }
   )
 
   // Auto-select document from URL on mount
   useEffect(() => {
-    if (documentFromUrl && !selectedDocument) {
-      setSelectedDocument(documentFromUrl as any)
+    if (documentIdFromUrl && !selectedDocumentId) {
+      setSelectedDocumentId(documentIdFromUrl)
     }
-  }, [documentFromUrl, selectedDocument])
+  }, [documentIdFromUrl, selectedDocumentId])
 
   return (
     <div className="flex h-full">
       {/* Left Panel - Document List */}
       <DocumentList
-        selectedDocumentId={selectedDocument?.id}
-        onSelectDocument={setSelectedDocument}
+        selectedDocumentId={selectedDocumentId}
+        onSelectDocument={(doc) => setSelectedDocumentId(doc.id)}
         onUploadClick={() => setIsUploadDialogOpen(true)}
       />
 
@@ -42,9 +49,13 @@ export default function DocumentsPage() {
       <div className="flex-1 border-l">
         {selectedDocument ? (
           <DocumentDetail
-            document={selectedDocument}
-            onClose={() => setSelectedDocument(null)}
-            onUpdate={(updated) => setSelectedDocument(updated)}
+            document={selectedDocument as Document}
+            onClose={() => setSelectedDocumentId(undefined)}
+            onUpdate={() => {
+              // No need to manually update state
+              // The query will automatically refetch when invalidated
+              // But we keep the callback for compatibility
+            }}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">

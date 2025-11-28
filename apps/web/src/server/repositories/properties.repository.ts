@@ -140,6 +140,26 @@ export class PropertiesRepository {
   }
 
   /**
+   * Get multiple properties by IDs (efficient batch fetch)
+   */
+  async findByIds(userId: string, propertyIds: string[]): Promise<Property[]> {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('properties')
+      .select('*')
+      .in('id', propertyIds)
+      .eq('user_id', userId)
+
+    if (error) {
+      console.error('[PropertiesRepository] Error finding properties by IDs:', error)
+      throw new Error(`Failed to find properties: ${error.message}`)
+    }
+
+    return (data || []).map(this.mapToProperty)
+  }
+
+  /**
    * Create a new property
    */
   async create(userId: string, input: CreatePropertyInput): Promise<Property> {

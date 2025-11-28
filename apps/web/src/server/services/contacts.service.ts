@@ -42,6 +42,17 @@ export class ContactsService {
   }
 
   /**
+   * Get multiple contacts by IDs (efficient batch fetch)
+   */
+  async getByIds(userId: string, contactIds: string[]): Promise<Contact[]> {
+    if (contactIds.length === 0) {
+      return []
+    }
+
+    return await contactsRepository.findByIds(userId, contactIds)
+  }
+
+  /**
    * Create a new contact (full form)
    */
   async create(userId: string, input: CreateContactInput): Promise<Contact> {

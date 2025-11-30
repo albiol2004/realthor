@@ -323,15 +323,15 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
 
   const complianceColor =
     !compliance ? 'text-gray-500' :
-    compliance.score >= 80 ? 'text-green-600' :
-    compliance.score >= 50 ? 'text-yellow-600' :
-    'text-red-600'
+      compliance.score >= 80 ? 'text-green-600' :
+        compliance.score >= 50 ? 'text-yellow-600' :
+          'text-red-600'
 
   const complianceBg =
     !compliance ? 'bg-gray-600' :
-    compliance.score >= 80 ? 'bg-green-600' :
-    compliance.score >= 50 ? 'bg-yellow-600' :
-    'bg-red-600'
+      compliance.score >= 80 ? 'bg-green-600' :
+        compliance.score >= 50 ? 'bg-yellow-600' :
+          'bg-red-600'
 
   return (
     <div className="h-full flex flex-col">
@@ -465,7 +465,7 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
                       Add Contact
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0">
+                  <PopoverContent className="w-[280px] sm:w-80 p-0" align="end">
                     <Command shouldFilter={false}>
                       <CommandInput
                         placeholder="Search contacts..."
@@ -566,7 +566,7 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
                       Add Property
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0">
+                  <PopoverContent className="w-[280px] sm:w-80 p-0" align="end">
                     <Command shouldFilter={false}>
                       <CommandInput
                         placeholder="Search properties..."

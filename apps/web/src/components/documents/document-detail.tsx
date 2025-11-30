@@ -100,6 +100,35 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
     }
   }, [polledDocument, isAILabelingInProgress, aiLabelingStartTime, utils])
 
+  // Sync local state when document prop changes
+  useEffect(() => {
+    setDisplayName(document.displayName || document.filename)
+    setDocumentType(document.documentType)
+    setDocumentDate(document.documentDate)
+    setDueDate(document.dueDate)
+    setTags((document.tags || []).join(", "))
+    setDescription(document.description || "")
+
+    // Reset contacts/properties loaded state to trigger refetch if needed
+    setContactsLoaded(false)
+    setPropertiesLoaded(false)
+  }, [document])
+
+  // Update local state when AI processing completes (polledDocument)
+  useEffect(() => {
+    if (polledDocument && polledDocument.aiProcessedAt) {
+      // Only update if the values were empty or default, or if we want to overwrite?
+      // For now, let's overwrite if the user hasn't modified them yet (hard to track)
+      // Or just update the fields that AI usually fills
+      if (polledDocument.documentType) setDocumentType(polledDocument.documentType)
+      if (polledDocument.tags) setTags((polledDocument.tags || []).join(", "))
+      if (polledDocument.description && !description) setDescription(polledDocument.description)
+      if (polledDocument.documentDate && !documentDate) setDocumentDate(polledDocument.documentDate)
+
+      // Also update the AI metadata display if we had it
+    }
+  }, [polledDocument])
+
   // Fetch contact details for relatedContactIds (efficient batch fetch)
   const { data: relatedContacts } = trpc.contacts.getByIds.useQuery(
     { ids: document.relatedContactIds },

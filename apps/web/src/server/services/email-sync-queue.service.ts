@@ -7,7 +7,7 @@ import { EmailSyncService } from './email-sync.service';
  */
 export class EmailSyncQueueService {
     private static readonly DEFAULT_BATCH_SIZE = 5;
-    private static readonly SYNC_INTERVAL_MINUTES = 15; // Sync each account every 15 minutes
+    private static readonly SYNC_INTERVAL_MINUTES = 5; // Sync each account every 15 minutes
 
     /**
      * Get accounts that need syncing

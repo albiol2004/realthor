@@ -7,6 +7,8 @@ import { propertiesRouter } from './properties'
 import { documentsRouter } from './documents'
 import { dealsRouter } from './deals'
 import { searchRouter } from './search'
+import { messagingRouter } from './messaging'
+import { emailSettingsRouter } from './email-settings'
 
 /**
  * Main tRPC Router
@@ -27,9 +29,8 @@ export const appRouter = router({
   documents: documentsRouter,
   deals: dealsRouter, // ✅ Deal management
   search: searchRouter, // ✅ Semantic document search
-  // Phase 2+: Add more routers
-  // messaging: messagingRouter,
-  // ai: aiRouter,
+  messaging: messagingRouter,
+  emailSettings: emailSettingsRouter,
 })
 
 export type AppRouter = typeof appRouter

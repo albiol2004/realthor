@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Mail, MessageSquare, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Mail, MessageSquare, Loader2, RefreshCw, Link } from "lucide-react";
 import { EmailMessage } from "@/components/messaging/email/email-message";
+import { toast } from "sonner";
 
 export default function MessagesPage() {
     const [activeTab, setActiveTab] = useState("email");
+    const utils = trpc.useUtils();
 
     const { data: emailAccounts } = trpc.emailSettings.list.useQuery();
 
@@ -17,6 +20,47 @@ export default function MessagesPage() {
     const { data: allEmails, isLoading } = trpc.messaging.getContactEmails.useQuery({
         contactEmails: [], // Empty to get all emails
     });
+
+    // Sync all email accounts
+    const syncAllAccounts = trpc.emailSettings.syncNow.useMutation({
+        onSuccess: () => {
+            toast.success("Email sync started");
+            utils.messaging.getContactEmails.invalidate();
+        },
+        onError: (error) => {
+            toast.error(`Sync failed: ${error.message}`);
+        },
+    });
+
+    // Link existing emails to contacts
+    const linkEmails = trpc.messaging.linkEmailsToContacts.useMutation({
+        onSuccess: (data) => {
+            toast.success(`Linked ${data.linked} contacts to emails`);
+            utils.messaging.getContactEmails.invalidate();
+        },
+        onError: (error) => {
+            toast.error(`Link failed: ${error.message}`);
+        },
+    });
+
+    // Auto-sync emails every 5 minutes (optional - can be disabled if not needed)
+    useEffect(() => {
+        if (!emailAccounts || emailAccounts.length === 0) return;
+
+        // Sync on mount
+        const initialSync = () => {
+            emailAccounts.forEach(account => {
+                syncAllAccounts.mutate({ id: account.id });
+            });
+        };
+
+        // Set up interval for periodic sync (5 minutes)
+        const intervalId = setInterval(() => {
+            initialSync();
+        }, 5 * 60 * 1000); // 5 minutes
+
+        return () => clearInterval(intervalId);
+    }, [emailAccounts]);
 
     return (
         <div className="h-full flex flex-col">
@@ -49,6 +93,39 @@ export default function MessagesPage() {
                 <TabsContent value="email" className="flex-1 m-0">
                     <ScrollArea className="h-full">
                         <div className="p-6">
+                            {/* Sync Button Header */}
+                            {emailAccounts && emailAccounts.length > 0 && (
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-lg font-semibold">All Emails</h2>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            onClick={() => linkEmails.mutate()}
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={linkEmails.isPending}
+                                            title="Link existing emails to contacts"
+                                        >
+                                            <Link className={`h-4 w-4 mr-2 ${linkEmails.isPending ? 'animate-spin' : ''}`} />
+                                            Link to Contacts
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                // Sync all accounts
+                                                emailAccounts.forEach(account => {
+                                                    syncAllAccounts.mutate({ id: account.id });
+                                                });
+                                            }}
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={syncAllAccounts.isPending}
+                                        >
+                                            <RefreshCw className={`h-4 w-4 mr-2 ${syncAllAccounts.isPending ? 'animate-spin' : ''}`} />
+                                            Sync Emails
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
                             {!emailAccounts || emailAccounts.length === 0 ? (
                                 <Card>
                                     <CardContent className="flex flex-col items-center justify-center py-12 text-center">

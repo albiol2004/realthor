@@ -20,7 +20,26 @@ export const emailSettingsRouter = router({
             throw new Error(`Failed to fetch email accounts: ${error.message}`);
         }
 
-        return data || [];
+        // Map snake_case to camelCase for frontend
+        const mappedAccounts = (data || []).map(account => ({
+            id: account.id,
+            userId: account.user_id,
+            provider: account.provider,
+            emailAddress: account.email_address,
+            imapHost: account.imap_host,
+            imapPort: account.imap_port,
+            imapUser: account.imap_user,
+            smtpHost: account.smtp_host,
+            smtpPort: account.smtp_port,
+            smtpUser: account.smtp_user,
+            lastSyncedAt: account.last_synced_at,
+            syncStatus: account.sync_status,
+            errorMessage: account.error_message,
+            createdAt: account.created_at,
+            updatedAt: account.updated_at,
+        }));
+
+        return mappedAccounts;
     }),
 
     create: protectedProcedure

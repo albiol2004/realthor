@@ -47,8 +47,15 @@ export function ContactOverviewTab({ contact, onTabChange }: ContactOverviewTabP
     entityId: contact.id,
   })
 
+  // Fetch recent emails for this contact
+  const { data: emailsData } = trpc.messaging.getContactEmails.useQuery({
+    contactEmails: contact.email ? [contact.email] : [],
+  })
+
   const deals = dealsData || []
   const documents = documentsData || []
+  const emails = emailsData || []
+  const recentEmail = emails.length > 0 ? emails[0] : null
 
   // Calculate compliance score based on contact role and required documents
   const { calculateContactCompliance } = require('@/lib/config/contact-compliance')
@@ -173,10 +180,27 @@ export function ContactOverviewTab({ contact, onTabChange }: ContactOverviewTabP
               onClick={() => onTabChange?.('email')}
             >
               <CardContent className="pt-6">
-                <div className="text-center py-6">
-                  <Mail className="h-8 w-8 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
-                  <p className="text-sm font-medium text-black dark:text-white">Email</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">No emails yet</p>
+                <div className={emails.length > 0 ? "py-4" : "text-center py-6"}>
+                  <div className="flex items-start gap-3">
+                    <Mail className="h-6 w-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-black dark:text-white">Email</p>
+                      {emails.length > 0 ? (
+                        <>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {emails.length} {emails.length === 1 ? 'message' : 'messages'}
+                          </p>
+                          {recentEmail && (
+                            <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                              {recentEmail.subject || '(No Subject)'}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">No emails yet</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

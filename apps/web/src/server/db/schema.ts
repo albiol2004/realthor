@@ -77,8 +77,10 @@ export const emails = createTable(
         references: text("references").array(),
         hasAttachments: boolean("has_attachments").default(false),
         attachments: text("attachments"), // JSONB in reality, but text for simplicity if jsonb not imported or using simple types
+        isRead: boolean("is_read").default(false),
         sentAt: timestamp("sent_at", { withTimezone: true }),
         createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+        updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
     },
     (table) => ({
         accountIdIdx: index("emails_account_id_idx").on(table.accountId),

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
+import { trpc } from '@/lib/trpc/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +30,8 @@ import {
   Activity,
   Briefcase,
   X,
+  RefreshCw,
+  Send,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ContactPropertiesTab } from './contact-properties-tab'
@@ -52,8 +56,24 @@ interface ContactDetailProps {
  */
 export function ContactDetail({ contact, onEdit, onDelete, onClose, isDeleting }: ContactDetailProps) {
   const [activeTab, setActiveTab] = useState('overview')
+  const [showComposer, setShowComposer] = useState(false)
   const statusColors = getContactStatusColor(contact.status)
   const budget = formatContactBudget(contact)
+  const utils = trpc.useUtils()
+
+  // Get email accounts
+  const { data: emailAccounts } = trpc.emailSettings.list.useQuery()
+
+  // Sync mutation
+  const syncEmails = trpc.emailSettings.syncNow.useMutation({
+    onSuccess: () => {
+      toast.success('Email sync started')
+      utils.messaging.getContactEmails.invalidate()
+    },
+    onError: (error) => {
+      toast.error(`Sync failed: ${error.message}`)
+    },
+  })
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-black">
@@ -307,16 +327,72 @@ export function ContactDetail({ contact, onEdit, onDelete, onClose, isDeleting }
         <TabsContent value="email" className="flex-1 m-0">
           <ScrollArea className="h-full">
             <div className="p-6 space-y-6">
-              <EmailComposer
-                contactEmails={contact.email ? [contact.email] : []}
-                defaultTo={contact.email}
-              />
-              <div>
-                <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
-                  Email History
+              {/* Action Bar */}
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-black dark:text-white">
+                  Email Conversation
                 </h3>
-                <EmailThreadList contactEmails={contact.email ? [contact.email] : []} />
+                <div className="flex gap-2">
+                  {emailAccounts && emailAccounts.length > 0 && (
+                    <Button
+                      onClick={() => {
+                        emailAccounts.forEach(account => {
+                          syncEmails.mutate({ id: account.id })
+                        })
+                      }}
+                      variant="outline"
+                      size="sm"
+                      disabled={syncEmails.isPending}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${syncEmails.isPending ? 'animate-spin' : ''}`} />
+                      Sync
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setShowComposer(!showComposer)}
+                    variant="default"
+                    size="sm"
+                    disabled={!contact.email}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Compose
+                  </Button>
+                </div>
               </div>
+
+              {/* Composer (collapsible) */}
+              {showComposer && contact.email && (
+                <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                  <EmailComposer
+                    contactEmails={[contact.email]}
+                    defaultTo={contact.email}
+                  />
+                  <Button
+                    onClick={() => setShowComposer(false)}
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+
+              {/* No email warning */}
+              {!contact.email && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-500">
+                  <Mail className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No email address for this contact</p>
+                  <p className="text-sm mt-1">Add an email address to start messaging</p>
+                </div>
+              )}
+
+              {/* Email History */}
+              {contact.email && (
+                <div>
+                  <EmailThreadList contactEmails={[contact.email]} />
+                </div>
+              )}
             </div>
           </ScrollArea>
         </TabsContent>

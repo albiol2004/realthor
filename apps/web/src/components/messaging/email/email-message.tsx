@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { Paperclip, Reply, ReplyAll, Forward } from "lucide-react";
+import { Paperclip, Reply, ReplyAll, Forward, Mail, Send, Circle } from "lucide-react";
+import { trpc } from "@/lib/trpc/client";
+import { cn } from "@/lib/utils";
 
 interface EmailMessageProps {
     email: {
@@ -15,64 +19,165 @@ interface EmailMessageProps {
         body: string | null;
         sentAt: Date | null;
         hasAttachments: boolean | null;
-        attachments: string | null; // JSON string
+        attachments: string | null;
+        direction?: string | null;
+        isRead?: boolean | null;
     };
 }
 
 export function EmailMessage({ email }: EmailMessageProps) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const utils = trpc.useUtils();
+
     const initials = email.fromEmail ? email.fromEmail.substring(0, 2).toUpperCase() : "??";
+    const isInbound = email.direction === 'inbound';
+    const isUnread = !email.isRead && isInbound;
+
+    // Mark as read when opening
+    const markAsReadMutation = trpc.messaging.markAsRead.useMutation({
+        onSuccess: () => {
+            utils.messaging.getContactEmails.invalidate();
+            utils.messaging.getUnreadCount.invalidate();
+        },
+    });
+
+    const handleOpen = () => {
+        setIsExpanded(true);
+        if (isUnread) {
+            markAsReadMutation.mutate({ emailId: email.id });
+        }
+    };
+
+    // Extract text preview (first 150 chars)
+    const getTextPreview = (html: string | null) => {
+        if (!html) return "No content";
+        // Strip HTML tags
+        const text = html.replace(/<[^>]*>/g, '');
+        return text.length > 150 ? text.substring(0, 150) + '...' : text;
+    };
 
     return (
-        <Card className="mb-4">
-            <CardHeader className="flex flex-row items-start gap-4 p-4 pb-2">
-                <Avatar>
-                    <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 grid gap-1">
-                    <div className="flex items-center justify-between">
-                        <div className="font-semibold">{email.fromEmail}</div>
-                        <div className="text-xs text-muted-foreground">
-                            {email.sentAt ? format(new Date(email.sentAt), "PPp") : "Unknown date"}
-                        </div>
+        <>
+            {/* Compact Email Card */}
+            <Card
+                className={cn(
+                    "mb-3 cursor-pointer hover:shadow-md transition-shadow",
+                    isUnread && "border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20"
+                )}
+                onClick={handleOpen}
+            >
+                <CardHeader className="flex flex-row items-start gap-4 p-4 pb-2">
+                    {/* Direction Indicator */}
+                    <div className="flex-shrink-0 mt-1">
+                        {isInbound ? (
+                            <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30" title="Received">
+                                <Mail className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </div>
+                        ) : (
+                            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30" title="Sent">
+                                <Send className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            </div>
+                        )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                        To: {email.toEmail?.join(", ")}
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-2">
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <div dangerouslySetInnerHTML={{ __html: email.body || "" }} />
-                </div>
 
-                {email.hasAttachments && (
-                    <div className="mt-4 pt-4 border-t">
-                        <div className="flex items-center gap-2 text-sm font-medium mb-2">
-                            <Paperclip className="h-4 w-4" />
-                            Attachments
+                    {/* Avatar */}
+                    <Avatar className="flex-shrink-0">
+                        <AvatarFallback>{initials}</AvatarFallback>
+                    </Avatar>
+
+                    {/* Email Info */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                {isUnread && (
+                                    <Circle className="h-2 w-2 fill-blue-500 text-blue-500 flex-shrink-0" />
+                                )}
+                                <div className="font-semibold truncate">{email.fromEmail}</div>
+                            </div>
+                            <div className="text-xs text-muted-foreground flex-shrink-0">
+                                {email.sentAt ? format(new Date(email.sentAt), "MMM d, h:mm a") : "Unknown"}
+                            </div>
                         </div>
-                        {/* Attachments rendering would go here. For MVP we just show the icon. */}
-                        <div className="flex gap-2">
-                            {/* Placeholder for attachments */}
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1 truncate">
+                            {email.subject || "(No Subject)"}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {getTextPreview(email.body)}
+                        </div>
+                        {email.hasAttachments && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                                <Paperclip className="h-3 w-3" />
+                                Has attachments
+                            </div>
+                        )}
+                    </div>
+                </CardHeader>
+            </Card>
+
+            {/* Full Screen Email Dialog */}
+            <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                                <DialogTitle className="text-xl">{email.subject || "(No Subject)"}</DialogTitle>
+                                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                                    <div className="flex items-center gap-2">
+                                        {isInbound ? (
+                                            <div className="p-1 rounded bg-green-100 dark:bg-green-900/30">
+                                                <Mail className="h-3 w-3 text-green-600 dark:text-green-400" />
+                                            </div>
+                                        ) : (
+                                            <div className="p-1 rounded bg-blue-100 dark:bg-blue-900/30">
+                                                <Send className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                                            </div>
+                                        )}
+                                        <span className="font-medium">{email.fromEmail}</span>
+                                    </div>
+                                    <span>•</span>
+                                    <span>{email.sentAt ? format(new Date(email.sentAt), "PPp") : "Unknown date"}</span>
+                                </div>
+                                <div className="text-sm text-muted-foreground mt-1">
+                                    To: {email.toEmail?.join(", ")}
+                                </div>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    {/* Email Body - Scrollable */}
+                    <div className="flex-1 overflow-y-auto p-4 border rounded-md bg-gray-50 dark:bg-gray-900">
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                            <div dangerouslySetInnerHTML={{ __html: email.body || "No content" }} />
+                        </div>
+                    </div>
+
+                    {/* Attachments Section */}
+                    {email.hasAttachments && (
+                        <div className="pt-4 border-t">
+                            <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                                <Paperclip className="h-4 w-4" />
+                                Attachments
+                            </div>
                             <Button variant="outline" size="sm" className="h-8">
                                 Download Attachments
                             </Button>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <div className="flex gap-2 mt-4 pt-4 border-t">
-                    <Button variant="ghost" size="sm">
-                        <Reply className="mr-2 h-4 w-4" /> Reply
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                        <ReplyAll className="mr-2 h-4 w-4" /> Reply All
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                        <Forward className="mr-2 h-4 w-4" /> Forward
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-4 border-t">
+                        <Button variant="outline" size="sm">
+                            <Reply className="mr-2 h-4 w-4" /> Reply
+                        </Button>
+                        <Button variant="outline" size="sm">
+                            <ReplyAll className="mr-2 h-4 w-4" /> Reply All
+                        </Button>
+                        <Button variant="outline" size="sm">
+                            <Forward className="mr-2 h-4 w-4" /> Forward
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }

@@ -1,8 +1,105 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { createClient } from "@/lib/supabase/server";
+import { EmailSyncService } from "../services/email-sync.service";
 
 export const messagingRouter = router({
+    // Retroactively link existing emails to contacts
+    linkEmailsToContacts: protectedProcedure.mutation(async ({ ctx }) => {
+        const supabase = await createClient();
+
+        // Get all user's contacts with emails
+        const { data: contacts } = await supabase
+            .from('contacts')
+            .select('id, email')
+            .eq('user_id', ctx.user.id)
+            .not('email', 'is', null);
+
+        if (!contacts || contacts.length === 0) {
+            return { linked: 0 };
+        }
+
+        let linkedCount = 0;
+
+        // For each contact, link unlinked emails
+        for (const contact of contacts) {
+            const cleanEmail = contact.email?.toLowerCase().trim();
+            if (!cleanEmail) continue;
+
+            // Update emails where contact_id is null and from_email matches
+            const { error } = await supabase
+                .from('kairo_emails')
+                .update({ contact_id: contact.id })
+                .eq('user_id', ctx.user.id)
+                .is('contact_id', null)
+                .ilike('from_email', `%${cleanEmail}%`);
+
+            if (!error) linkedCount++;
+        }
+
+        return { linked: linkedCount };
+    }),
+
+    // Mark email as read
+    markAsRead: protectedProcedure
+        .input(z.object({ emailId: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            const supabase = await createClient();
+
+            // First, get the email details to sync with IMAP
+            const { data: email } = await supabase
+                .from('kairo_emails')
+                .select('account_id, uid')
+                .eq('id', input.emailId)
+                .eq('user_id', ctx.user.id)
+                .single();
+
+            if (!email) {
+                throw new Error('Email not found');
+            }
+
+            // Update database
+            const { error } = await supabase
+                .from('kairo_emails')
+                .update({ is_read: true })
+                .eq('id', input.emailId)
+                .eq('user_id', ctx.user.id);
+
+            if (error) {
+                throw new Error(`Failed to mark as read: ${error.message}`);
+            }
+
+            // Sync with IMAP server (don't block on this)
+            if (email.account_id && email.uid) {
+                EmailSyncService.updateReadStatus(email.account_id, email.uid, true)
+                    .catch(err => {
+                        console.error('Failed to sync read status with IMAP:', err);
+                        // Don't throw - database is updated, IMAP sync is best-effort
+                    });
+            }
+
+            return { success: true };
+        }),
+
+    // Get unread count
+    getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
+        const supabase = await createClient();
+
+        const { count, error } = await supabase
+            .from('kairo_emails')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', ctx.user.id)
+            .eq('is_read', false)
+            .eq('direction', 'inbound');
+
+        if (error) {
+            console.error('Error fetching unread count:', error);
+            return 0;
+        }
+
+        return count || 0;
+    }),
+
     getContactEmails: protectedProcedure
         .input(
             z.object({
@@ -35,7 +132,11 @@ export const messagingRouter = router({
             if (input.contactEmails && input.contactEmails.length > 0) {
                 // Fetch emails where fromEmail matches any contact email
                 // OR where toEmail array contains any contact email
-                query = query.or(input.contactEmails.map(email => `from_email.eq.${email}`).join(','));
+                const orConditions = input.contactEmails.flatMap(email => [
+                    `from_email.eq.${email}`,  // Emails FROM the contact
+                    `to_email.cs.{${email}}`    // Emails TO the contact (array contains)
+                ]);
+                query = query.or(orConditions.join(','));
             }
 
             // Otherwise, fetch all emails for the user (no filter)
@@ -69,8 +170,10 @@ export const messagingRouter = router({
                 references: email.references,
                 hasAttachments: email.has_attachments,
                 attachments: email.attachments,
+                isRead: email.is_read,
                 sentAt: email.sent_at,
                 createdAt: email.created_at,
+                updatedAt: email.updated_at,
             }));
 
             return mappedEmails;

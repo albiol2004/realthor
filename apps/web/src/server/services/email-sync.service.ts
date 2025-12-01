@@ -62,6 +62,8 @@ export class EmailSyncService {
                 if (!all) continue; // Skip if we can't find the full message body
 
                 const id = message.attributes.uid;
+                const flags = message.attributes.flags || [];
+                const isRead = flags.includes('\\Seen');
 
                 // Parse email
                 const parsed = await simpleParser(all.body);
@@ -81,21 +83,44 @@ export class EmailSyncService {
                 // But for INBOX it's usually inbound.
                 const direction = 'inbound';
 
+                // Extract clean email address from parsed.from
+                const fromEmail = parsed.from?.text || '';
+                const cleanFromEmail = fromEmail.match(/<(.+?)>/)
+                    ? fromEmail.match(/<(.+?)>/)![1]
+                    : fromEmail.split('<')[0].trim();
+
+                // Try to link email to a contact based on from_email
+                let contactId = null;
+                if (cleanFromEmail) {
+                    const { data: contact } = await supabase
+                        .from('contacts')
+                        .select('id')
+                        .eq('user_id', account.user_id)
+                        .ilike('email', cleanFromEmail)
+                        .single();
+
+                    if (contact) {
+                        contactId = contact.id;
+                    }
+                }
+
                 // Prepare email data
                 const emailData = {
                     account_id: account.id,
                     user_id: account.user_id,
+                    contact_id: contactId,  // Link to contact if found
                     uid: id,
                     folder: 'INBOX',
                     subject: parsed.subject || '',
                     body: parsed.text || parsed.html || '',
-                    from_email: parsed.from?.text || '',
+                    from_email: cleanFromEmail,
                     to_email: Array.isArray(parsed.to)
                         ? parsed.to.map((t: any) => t.text)
                         : parsed.to?.text ? [parsed.to.text] : [],
                     sent_at: parsed.date?.toISOString() || new Date().toISOString(),
                     message_id: parsed.messageId || null,
                     has_attachments: parsed.attachments && parsed.attachments.length > 0,
+                    is_read: isRead,  // Sync read status from IMAP server
                     direction,
                     status: 'delivered',
                 };
@@ -127,6 +152,62 @@ export class EmailSyncService {
                 })
                 .eq('id', accountId);
 
+            throw error;
+        }
+    }
+
+    /**
+     * Mark email as read or unread on IMAP server
+     */
+    static async updateReadStatus(accountId: string, uid: number, isRead: boolean) {
+        const supabase = await createClient();
+
+        // Fetch account details
+        const { data: account, error: accountError } = await supabase
+            .from('kairo_email_accounts')
+            .select('*')
+            .eq('id', accountId)
+            .single();
+
+        if (accountError || !account) {
+            throw new Error(`Account not found: ${accountError?.message || 'Unknown error'}`);
+        }
+
+        if (!account.imap_host || !account.imap_user || !account.imap_password_encrypted) {
+            throw new Error('Invalid account configuration');
+        }
+
+        const password = EncryptionService.decrypt(account.imap_password_encrypted);
+
+        const config = {
+            imap: {
+                user: account.imap_user,
+                password: password,
+                host: account.imap_host,
+                port: account.imap_port || 993,
+                tls: true,
+                tlsOptions: {
+                    rejectUnauthorized: false,
+                    servername: account.imap_host,
+                },
+                authTimeout: 10000,
+            },
+        };
+
+        try {
+            const connection = await imaps.connect(config);
+            await connection.openBox('INBOX');
+
+            // Add or remove \Seen flag
+            if (isRead) {
+                await connection.addFlags(uid, '\\Seen');
+            } else {
+                await connection.delFlags(uid, '\\Seen');
+            }
+
+            connection.end();
+        } catch (error: any) {
+            console.error('Failed to update read status on IMAP server:', error);
             throw error;
         }
     }

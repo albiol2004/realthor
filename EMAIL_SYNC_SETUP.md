@@ -5,6 +5,7 @@ This document explains how to set up the server-side email sync system for Kairo
 ## Overview
 
 The email sync system uses a **staggered polling approach** to efficiently sync email accounts:
+
 - Processes 5-10 accounts per minute (configurable)
 - Each account is synced every 15 minutes
 - Spreads load evenly across time
@@ -42,6 +43,7 @@ ENCRYPTION_KEY=your-32-character-encryption-key-here
 ```
 
 **Generate secure tokens:**
+
 ```bash
 # Generate CRON_SECRET
 openssl rand -hex 32
@@ -57,11 +59,13 @@ Create a cron job that calls the sync endpoint every minute.
 #### Option A: crontab (Linux/Mac)
 
 1. Open crontab editor:
+
 ```bash
 crontab -e
 ```
 
 2. Add this line (replace with your actual URL and secret):
+
 ```cron
 * * * * * curl -X POST http://localhost:3000/api/cron/sync-emails \
   -H "Authorization: Bearer YOUR_CRON_SECRET" \
@@ -69,6 +73,7 @@ crontab -e
 ```
 
 For production (HTTPS):
+
 ```cron
 * * * * * curl -X POST https://yourdomain.com/api/cron/sync-emails \
   -H "Authorization: Bearer YOUR_CRON_SECRET" \
@@ -78,6 +83,7 @@ For production (HTTPS):
 #### Option B: systemd timer (Linux, recommended for VPS)
 
 1. Create service file `/etc/systemd/system/kairo-email-sync.service`:
+
 ```ini
 [Unit]
 Description=Kairo Email Sync
@@ -95,6 +101,7 @@ WantedBy=multi-user.target
 ```
 
 2. Create timer file `/etc/systemd/system/kairo-email-sync.timer`:
+
 ```ini
 [Unit]
 Description=Run Kairo Email Sync every minute
@@ -110,6 +117,7 @@ WantedBy=timers.target
 ```
 
 3. Enable and start:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable kairo-email-sync.timer
@@ -117,6 +125,7 @@ sudo systemctl start kairo-email-sync.timer
 ```
 
 4. Check status:
+
 ```bash
 sudo systemctl status kairo-email-sync.timer
 journalctl -u kairo-email-sync.service -f
@@ -132,6 +141,7 @@ curl -X GET http://localhost:3000/api/cron/sync-emails \
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -146,6 +156,7 @@ Response:
 ### Manual Trigger
 
 Force an immediate sync:
+
 ```bash
 curl -X POST http://localhost:3000/api/cron/sync-emails \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
@@ -154,6 +165,7 @@ curl -X POST http://localhost:3000/api/cron/sync-emails \
 ### Custom Batch Size
 
 Override default batch size:
+
 ```bash
 curl -X POST "http://localhost:3000/api/cron/sync-emails?batchSize=10" \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
@@ -161,7 +173,7 @@ curl -X POST "http://localhost:3000/api/cron/sync-emails?batchSize=10" \
 
 ## Performance Tuning
 
-### For 2vCPU / 8GB RAM VPS:
+### For 2vCPU / 8GB RAM VPS
 
 | Customers | Accounts | Batch Size | CPU Usage | Notes |
 |-----------|----------|------------|-----------|-------|
@@ -171,6 +183,7 @@ curl -X POST "http://localhost:3000/api/cron/sync-emails?batchSize=10" \
 | 100+      | 100+     | 10-15      | ~15-20%   | Consider scaling |
 
 **Calculation:**
+
 - Each account takes ~2-5 seconds to sync
 - Batch of 5 = ~10-25 seconds total per minute
 - 100 accounts = checked every 10-20 minutes
@@ -184,6 +197,7 @@ private static readonly SYNC_INTERVAL_MINUTES = 15; // Change this
 ```
 
 Options:
+
 - **5 minutes**: More frequent, higher load
 - **15 minutes**: Balanced (recommended)
 - **30 minutes**: Lower load, delayed emails
@@ -193,6 +207,7 @@ Options:
 ### No accounts are syncing
 
 1. Check cron is running:
+
 ```bash
 # For crontab
 tail -f /var/log/kairo-email-sync.log
@@ -202,11 +217,13 @@ journalctl -u kairo-email-sync.service -f
 ```
 
 2. Verify CRON_SECRET matches:
+
 ```bash
 echo $CRON_SECRET
 ```
 
 3. Check endpoint manually:
+
 ```bash
 curl -v -X POST http://localhost:3000/api/cron/sync-emails \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
@@ -215,6 +232,7 @@ curl -v -X POST http://localhost:3000/api/cron/sync-emails \
 ### Sync failing for specific accounts
 
 Check account sync status in database:
+
 ```sql
 SELECT
   email_address,
@@ -242,12 +260,14 @@ WHERE sync_status = 'error';
 ## Next Steps
 
 This setup provides:
+
 - ✅ Staggered server-side syncing
 - ✅ Predictable resource usage
 - ✅ Read/unread sync with IMAP
 - ✅ Manual sync button for immediate needs
 
 **Future enhancements:**
+
 - Implement IMAP IDLE for real-time push
 - Add email deletion sync
 - Support for multiple folders (Sent, Drafts, etc.)

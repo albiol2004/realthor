@@ -4,7 +4,7 @@ import { EmailAccountForm } from "@/components/settings/email-account-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc/client";
-import { Loader2, Trash2, Mail } from "lucide-react";
+import { Loader2, Trash2, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +18,16 @@ export default function EmailIntegrationsPage() {
         onSuccess: () => {
             toast.success("Account removed");
             utils.emailSettings.list.invalidate();
+        },
+    });
+
+    const syncAccount = trpc.emailSettings.syncNow.useMutation({
+        onSuccess: () => {
+            toast.success("Email sync started");
+            utils.emailSettings.list.invalidate();
+        },
+        onError: (error) => {
+            toast.error(`Sync failed: ${error.message}`);
         },
     });
 
@@ -73,34 +83,53 @@ export default function EmailIntegrationsPage() {
                     </Card>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {accounts?.map((account) => (
+                        {accounts?.map((account: any) => (
                             <Card key={account.id}>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">
-                                        {account.provider?.toUpperCase()}
+                                        {account.provider?.toUpperCase() || 'IMAP'}
                                     </CardTitle>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-destructive hover:text-destructive/90"
-                                        onClick={() => deleteAccount.mutate({ id: account.id })}
-                                        disabled={deleteAccount.isPending}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => syncAccount.mutate({ id: account.id })}
+                                            disabled={syncAccount.isPending}
+                                            title="Sync emails now"
+                                        >
+                                            <RefreshCw className={`h-4 w-4 ${syncAccount.isPending ? 'animate-spin' : ''}`} />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-destructive hover:text-destructive/90"
+                                            onClick={() => deleteAccount.mutate({ id: account.id })}
+                                            disabled={deleteAccount.isPending}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold truncate" title={account.emailAddress}>
-                                        {account.emailAddress}
+                                    <div className="text-2xl font-bold truncate" title={account.email_address}>
+                                        {account.email_address}
                                     </div>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        Status: <span className={account.syncStatus === 'error' ? 'text-red-500' : 'text-green-500'}>
-                                            {account.syncStatus}
+                                        IMAP: {account.imap_host}:{account.imap_port}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Status: <span className={account.sync_status === 'error' ? 'text-red-500' : 'text-green-500'}>
+                                            {account.sync_status || 'active'}
                                         </span>
                                     </p>
-                                    {account.errorMessage && (
-                                        <p className="text-xs text-red-500 mt-1 truncate" title={account.errorMessage}>
-                                            {account.errorMessage}
+                                    {account.error_message && (
+                                        <p className="text-xs text-red-500 mt-1 truncate" title={account.error_message}>
+                                            {account.error_message}
+                                        </p>
+                                    )}
+                                    {account.last_synced_at && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Last synced: {new Date(account.last_synced_at).toLocaleString()}
                                         </p>
                                     )}
                                 </CardContent>

@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
-import { db } from "../db";
-import { emails, emailAccounts } from "../db/schema";
-import { eq, or, desc, inArray, and } from "drizzle-orm";
+import { createClient } from "@/lib/supabase/server";
 
 export const messagingRouter = router({
     getContactEmails: protectedProcedure
@@ -13,58 +11,68 @@ export const messagingRouter = router({
             })
         )
         .query(async ({ ctx, input }) => {
-            if (!input.contactEmails || input.contactEmails.length === 0) {
+            const supabase = await createClient();
+
+            // First get user's email accounts
+            const { data: accounts } = await supabase
+                .from('kairo_email_accounts')
+                .select('id')
+                .eq('user_id', ctx.user.id);
+
+            if (!accounts || accounts.length === 0) {
                 return [];
             }
 
-            // Fetch emails where fromEmail OR toEmail matches any of the contact's emails
-            // And the email belongs to one of the user's accounts
+            const accountIds = accounts.map(a => a.id);
 
-            // First get user's account IDs
-            const userAccounts = await db.query.emailAccounts.findMany({
-                where: eq(emailAccounts.userId, ctx.user.id),
-                columns: { id: true },
-            });
+            // Build query
+            let query = supabase
+                .from('kairo_emails')
+                .select('*')
+                .in('account_id', accountIds);
 
-            const accountIds = userAccounts.map(a => a.id);
+            // If contact emails are provided, filter by them
+            if (input.contactEmails && input.contactEmails.length > 0) {
+                // Fetch emails where fromEmail matches any contact email
+                // OR where toEmail array contains any contact email
+                query = query.or(input.contactEmails.map(email => `from_email.eq.${email}`).join(','));
+            }
 
-            if (accountIds.length === 0) return [];
+            // Otherwise, fetch all emails for the user (no filter)
+            const { data: emails, error } = await query
+                .order('sent_at', { ascending: false })
+                .limit(50);
 
-            // We need to check if ANY of the contact emails are in the to/cc/bcc arrays
-            // Drizzle doesn't have a simple "array overlaps" helper for text[] in all drivers easily,
-            // but we can use `or` conditions for `fromEmail` and simple checks.
-            // For `toEmail` array, we might need raw SQL or a more complex query.
-            // For MVP, let's stick to `fromEmail` matches contact OR `toEmail` contains contact.
-            // Since `toEmail` is an array, we can use `arrayContains` if supported, or just fetch and filter in memory if volume is low.
-            // But let's try to be efficient.
+            if (error) {
+                console.error('Error fetching emails:', error);
+                return [];
+            }
 
-            // Actually, let's just fetch by `fromEmail` for now, and maybe `toEmail` if we can.
-            // Postgres `ANY` operator is useful here.
+            // Map snake_case to camelCase for frontend
+            const mappedEmails = (emails || []).map(email => ({
+                id: email.id,
+                userId: email.user_id,
+                accountId: email.account_id,
+                contactId: email.contact_id,
+                conversationId: email.conversation_id,
+                subject: email.subject,
+                body: email.body,
+                fromEmail: email.from_email,
+                toEmail: email.to_email,
+                ccEmail: email.cc_email,
+                bccEmail: email.bcc_email,
+                direction: email.direction,
+                status: email.status,
+                messageId: email.message_id,
+                uid: email.uid,
+                folder: email.folder,
+                references: email.references,
+                hasAttachments: email.has_attachments,
+                attachments: email.attachments,
+                sentAt: email.sent_at,
+                createdAt: email.created_at,
+            }));
 
-            // Simplified approach: Fetch emails for this user's accounts, then filter.
-            // Better: Use SQL `OR`.
-
-            // Since Drizzle's array support varies, let's try to find emails where:
-            // accountId IN (userAccounts) AND (fromEmail IN (contactEmails) OR ...)
-
-            // For MVP, let's assume we just want to see emails FROM the contact (inbound) 
-            // and emails SENT TO the contact (outbound).
-
-            // Note: `toEmail` is stored as text[] in our schema.
-
-            return await db.query.emails.findMany({
-                where: and(
-                    inArray(emails.accountId, accountIds),
-                    or(
-                        inArray(emails.fromEmail, input.contactEmails),
-                        // For array columns, we can't easily use `inArray` on the column itself against a list of values.
-                        // We'd need `sql` operator.
-                        // Let's just fetch inbound from contact for now to prove it works, 
-                        // and maybe outbound if we can match `toEmail`.
-                    )
-                ),
-                orderBy: [desc(emails.sentAt)],
-                limit: 50,
-            });
+            return mappedEmails;
         }),
 });

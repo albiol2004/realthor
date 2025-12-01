@@ -39,7 +39,7 @@ export function EmailThreadList({ contactEmails }: EmailThreadListProps) {
         }
         acc[subject].push(email);
         return acc;
-    }, {} as Record<string, typeof emails>);
+    }, {} as Record<string, any[]>);
 
     return (
         <ScrollArea className="h-[600px] pr-4">
@@ -49,7 +49,7 @@ export function EmailThreadList({ contactEmails }: EmailThreadListProps) {
                         <div className="sticky top-0 bg-background/95 backdrop-blur z-10 py-2 border-b mb-4">
                             <h3 className="font-semibold text-lg">{subject}</h3>
                         </div>
-                        {threadEmails.map((email) => (
+                        {(threadEmails as any[]).map((email: any) => (
                             <EmailMessage key={email.id} email={email} />
                         ))}
                     </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmailThreadList } from "@/components/messaging/email/email-thread-list";
+import { EmailComposer } from "@/components/messaging/email/email-composer";
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { Loader2, Mail, Phone, Building, User } from "lucide-react";
@@ -76,6 +77,8 @@ export default function ContactDetailPage() {
                 </TabsContent>
 
                 <TabsContent value="email" className="space-y-4">
+                    <EmailComposer contactEmails={contactEmails} />
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Email History</CardTitle>

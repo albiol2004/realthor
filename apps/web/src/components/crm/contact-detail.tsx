@@ -34,6 +34,8 @@ import { ContactPropertiesTab } from './contact-properties-tab'
 import { ContactOverviewTab } from './contact-overview-tab'
 import { ContactDocumentsTab } from './contact-documents-tab'
 import { ContactDealsTab } from './contact-deals-tab'
+import { EmailComposer } from '@/components/messaging/email/email-composer'
+import { EmailThreadList } from '@/components/messaging/email/email-thread-list'
 
 interface ContactDetailProps {
   contact: Contact
@@ -304,14 +306,16 @@ export function ContactDetail({ contact, onEdit, onDelete, onClose, isDeleting }
         {/* Email Tab */}
         <TabsContent value="email" className="flex-1 m-0">
           <ScrollArea className="h-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
-                Email Conversations
-              </h3>
-              <div className="text-center py-12 text-gray-500 dark:text-gray-500">
-                <Mail className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No emails yet</p>
-                <p className="text-sm mt-1">Email conversations will appear here</p>
+            <div className="p-6 space-y-6">
+              <EmailComposer
+                contactEmails={contact.email ? [contact.email] : []}
+                defaultTo={contact.email}
+              />
+              <div>
+                <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
+                  Email History
+                </h3>
+                <EmailThreadList contactEmails={contact.email ? [contact.email] : []} />
               </div>
             </div>
           </ScrollArea>

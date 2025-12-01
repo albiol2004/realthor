@@ -12,6 +12,7 @@ import {
   Share2,
   UserCog,
   Settings,
+  MessageSquare,
 } from 'lucide-react'
 
 /**
@@ -29,6 +30,12 @@ const navigationItems = [
     href: '/crm',
     icon: Users,
     description: 'Contacts, Messages, Deals, Timeline',
+  },
+  {
+    name: 'Messages',
+    href: '/messages',
+    icon: MessageSquare,
+    description: 'Email & WhatsApp Hub',
   },
   {
     name: 'Deals',

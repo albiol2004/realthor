@@ -28,10 +28,10 @@ export default function SettingsPage() {
       available: false,
     },
     {
-      title: 'Integrations',
-      description: 'Connect third-party services and APIs',
-      href: '/settings/integrations',
-      available: false,
+      title: 'Email Integration',
+      description: 'Connect your email accounts (IMAP/SMTP)',
+      href: '/settings/integrations/email',
+      available: true,
     },
     {
       title: 'Security',

@@ -1,17 +1,26 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
-import { db } from "../db";
-import { emailAccounts } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { createClient } from "@/lib/supabase/server";
 import { EncryptionService } from "@/lib/utils/encryption";
 import imaps from "imap-simple";
+import nodemailer from "nodemailer";
+import { EmailSyncService } from "../services/email-sync.service";
 
 export const emailSettingsRouter = router({
     list: protectedProcedure.query(async ({ ctx }) => {
-        return await db.query.emailAccounts.findMany({
-            where: eq(emailAccounts.userId, ctx.user.id),
-            orderBy: (accounts, { desc }) => [desc(accounts.createdAt)],
-        });
+        const supabase = await createClient();
+
+        const { data, error } = await supabase
+            .from('kairo_email_accounts')
+            .select('*')
+            .eq('user_id', ctx.user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            throw new Error(`Failed to fetch email accounts: ${error.message}`);
+        }
+
+        return data || [];
     }),
 
     create: protectedProcedure
@@ -29,30 +38,127 @@ export const emailSettingsRouter = router({
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const supabase = await createClient();
+
             // Encrypt passwords
             const imapPasswordEncrypted = EncryptionService.encrypt(input.imapPassword);
             const smtpPasswordEncrypted = EncryptionService.encrypt(input.smtpPassword);
 
-            await db.insert(emailAccounts).values({
-                userId: ctx.user.id,
-                emailAddress: input.emailAddress,
-                imapHost: input.imapHost,
-                imapPort: input.imapPort,
-                imapUser: input.imapUser,
-                imapPasswordEncrypted,
-                smtpHost: input.smtpHost,
-                smtpPort: input.smtpPort,
-                smtpUser: input.smtpUser,
-                smtpPasswordEncrypted,
-            });
+            const { data, error } = await supabase
+                .from('kairo_email_accounts')
+                .insert({
+                    user_id: ctx.user.id,
+                    email_address: input.emailAddress,
+                    imap_host: input.imapHost,
+                    imap_port: input.imapPort,
+                    imap_user: input.imapUser,
+                    imap_password_encrypted: imapPasswordEncrypted,
+                    smtp_host: input.smtpHost,
+                    smtp_port: input.smtpPort,
+                    smtp_user: input.smtpUser,
+                    smtp_password_encrypted: smtpPasswordEncrypted,
+                })
+                .select()
+                .single();
 
-            return { success: true };
+            if (error) {
+                throw new Error(`Failed to create email account: ${error.message}`);
+            }
+
+            return { success: true, account: data };
         }),
 
     delete: protectedProcedure
         .input(z.object({ id: z.string() }))
         .mutation(async ({ ctx, input }) => {
-            await db.delete(emailAccounts).where(eq(emailAccounts.id, input.id));
+            const supabase = await createClient();
+
+            const { error } = await supabase
+                .from('kairo_email_accounts')
+                .delete()
+                .eq('id', input.id)
+                .eq('user_id', ctx.user.id);
+
+            if (error) {
+                throw new Error(`Failed to delete email account: ${error.message}`);
+            }
+
+            return { success: true };
+        }),
+
+    syncNow: protectedProcedure
+        .input(z.object({ id: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            try {
+                await EmailSyncService.syncAccount(input.id);
+                return { success: true };
+            } catch (error: any) {
+                throw new Error(`Sync failed: ${error.message}`);
+            }
+        }),
+
+    sendEmail: protectedProcedure
+        .input(
+            z.object({
+                accountId: z.string(),
+                to: z.string().email(),
+                subject: z.string(),
+                body: z.string(),
+            })
+        )
+        .mutation(async ({ ctx, input }) => {
+            const supabase = await createClient();
+
+            // Get account details
+            const { data: account, error: fetchError } = await supabase
+                .from('kairo_email_accounts')
+                .select('*')
+                .eq('id', input.accountId)
+                .eq('user_id', ctx.user.id)
+                .single();
+
+            if (fetchError || !account) {
+                throw new Error('Email account not found');
+            }
+
+            // Decrypt SMTP password
+            const smtpPassword = EncryptionService.decrypt(account.smtp_password_encrypted);
+
+            // Create transporter
+            const transporter = nodemailer.createTransport({
+                host: account.smtp_host,
+                port: account.smtp_port,
+                secure: account.smtp_port === 465,
+                auth: {
+                    user: account.smtp_user,
+                    pass: smtpPassword,
+                },
+                tls: {
+                    rejectUnauthorized: false,
+                },
+            });
+
+            // Send email
+            await transporter.sendMail({
+                from: account.email_address,
+                to: input.to,
+                subject: input.subject,
+                html: input.body,
+            });
+
+            // Store sent email in database
+            await supabase.from('kairo_emails').insert({
+                user_id: ctx.user.id,
+                account_id: account.id,
+                from_email: account.email_address,
+                to_email: [input.to],
+                subject: input.subject,
+                body: input.body,
+                direction: 'outbound',
+                status: 'sent',
+                sent_at: new Date().toISOString(),
+            });
+
             return { success: true };
         }),
 
@@ -73,7 +179,11 @@ export const emailSettingsRouter = router({
                     host: input.imapHost,
                     port: input.imapPort,
                     tls: true,
-                    authTimeout: 3000,
+                    tlsOptions: {
+                        rejectUnauthorized: false,
+                        servername: input.imapHost,
+                    },
+                    authTimeout: 10000,
                 },
             };
 

@@ -5,7 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0] - 2025-01-25
+## [0.14.0] - 2025-11-30
+
+### Added - AI Contact Auto-Linking & Responsiveness Improvements
+
+#### AI-Powered Contact Auto-Linking
+
+**Intelligent system that automatically links documents to contacts based on content analysis**
+
+- **AI Matching Engine:** (`vps-ocr-service/app/contact_matching_worker.py`)
+  - Uses Deepseek AI to match names extracted from documents against the contact database
+  - **Smart Matching Strategy:**
+    - Fuzzy search with multi-strategy matching (Exact, First+Last, Reversed)
+    - Returns top 5 candidates with full metadata for AI evaluation
+    - Requires confidence threshold ≥ 0.8 for auto-linking
+  - **Integration:** Runs automatically after AI document labeling
+  - **Benefits:**
+    - Reduces manual data entry
+    - Handles name variations, typos, and reversed names (e.g., "Garcia Perez, Juan")
+    - Non-destructive: Adds to existing links, doesn't replace them
+
+#### Debugging & Monitoring
+
+- **Verbose Logging:** Added detailed logging for contact matching process to aid debugging (`vps-ocr-service/app/ai_labeling_poller.py`)
+
+### Fixed
+
+#### Contact Search Logic
+
+**Critical fix for fuzzy search matching**
+
+- **Problem:** Search required ALL terms to match (AND logic), causing failures for partial name matches.
+  - Example: Searching "Alejandro Jesus" wouldn't find "Alejandro Garcia" if "Jesus" wasn't in the record.
+- **Solution:** Switched to OR logic for fuzzy matching (`vps-ocr-service/app/database.py`)
+  - Matches if ANY part of the name matches the search terms
+  - Consistent with backend search logic
+  - Added phone and company fields to search scope
+
+#### Document Linking Reliability
+
+**Fix for silent failures when linking contacts**
+
+- **Problem:** Linking a contact to a document failed silently if the document had no existing contacts (`related_contact_ids` was NULL).
+- **Root Cause:** PostgreSQL `array_append(NULL, value)` returns NULL, and `NOT (val = ANY(NULL))` returns NULL.
+- **Solution:** Implemented robust NULL handling (`vps-ocr-service/app/database.py`)
+  - Uses `COALESCE(related_contact_ids, ARRAY[]::uuid[])` to ensure array exists
+  - Explicit `related_contact_ids IS NULL` check in WHERE clause
+  - Idempotent operation (safe to retry)
+
+#### UI Responsiveness & State Management
+
+- **Deal Detail Mobile View:** (`apps/web/src/components/deals/deal-detail.tsx`)
+  - Fixed "Add Contact" and "Add Property" popovers having fixed width (`w-80`)
+  - Now uses responsive width (`w-[280px] sm:w-80`) to fit small mobile screens
+  - Improved popover alignment
+
+- **Document Detail Sync:** (`apps/web/src/components/documents/document-detail.tsx`)
+  - Fixed issue where form fields didn't update when switching between documents
+  - Added real-time state synchronization for AI labeling results (tags, document type)
+  - Form now automatically reflects AI updates without page refresh
+
+- **AI Labeling Categories:** Updated category mapping to ensure AI output matches exact system values defined in `RISK_CATEGORIES.md`.
+
 
 ### Added - Document Enhancements & Deep Linking
 

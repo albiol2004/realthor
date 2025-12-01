@@ -43,24 +43,8 @@ export default function MessagesPage() {
         },
     });
 
-    // Auto-sync emails every 5 minutes (optional - can be disabled if not needed)
-    useEffect(() => {
-        if (!emailAccounts || emailAccounts.length === 0) return;
-
-        // Sync on mount
-        const initialSync = () => {
-            emailAccounts.forEach(account => {
-                syncAllAccounts.mutate({ id: account.id });
-            });
-        };
-
-        // Set up interval for periodic sync (5 minutes)
-        const intervalId = setInterval(() => {
-            initialSync();
-        }, 5 * 60 * 1000); // 5 minutes
-
-        return () => clearInterval(intervalId);
-    }, [emailAccounts]);
+    // Auto-sync is now handled by server-side cron job
+    // Manual sync button remains available for immediate syncing
 
     return (
         <div className="h-full flex flex-col">

@@ -434,6 +434,8 @@ class Database:
                             address_city,
                             address_state,
                             address_country,
+                            date_of_birth,
+                            place_of_birth,
                             status,
                             category,
                             created_at
@@ -492,6 +494,8 @@ class Database:
                             address_city,
                             address_state,
                             address_country,
+                            date_of_birth,
+                            place_of_birth,
                             status,
                             category,
                             created_at

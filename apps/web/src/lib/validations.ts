@@ -37,29 +37,35 @@ export const quickCreateContactSchema = z.object({
 export const createContactSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
-  email: z.union([z.string().email('Invalid email address'), z.literal('')]).optional(),
-  phone: z.string().optional(),
-  profilePictureUrl: z.union([z.string().url(), z.literal('')]).optional(),
-
-  company: z.string().max(200).optional(),
-  jobTitle: z.string().max(100).optional(),
-
-  addressStreet: z.string().max(200).optional(),
-  addressCity: z.string().max(100).optional(),
-  addressState: z.string().max(100).optional(),
-  addressZip: z.string().max(20).optional(),
-  addressCountry: z.string().max(100).optional(),
-
-  status: contactStatusSchema.default('lead'),
-  category: contactCategorySchema.optional(),
-  source: contactSourceSchema.optional(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  phone: z.string().max(50).optional().or(z.literal('')),
+  profilePictureUrl: z.string().url().optional().or(z.literal('')),
+  dateOfBirth: z.coerce.date().optional(),
+  placeOfBirth: z.string().max(200).optional().or(z.literal('')),
+  company: z.string().max(200).optional().or(z.literal('')),
+  jobTitle: z.string().max(200).optional().or(z.literal('')),
+  addressStreet: z.string().max(500).optional().or(z.literal('')),
+  addressCity: z.string().max(100).optional().or(z.literal('')),
+  addressState: z.string().max(100).optional().or(z.literal('')),
+  addressZip: z.string().max(20).optional().or(z.literal('')),
+  addressCountry: z.string().max(100).optional().or(z.literal('')),
+  status: z.enum(['lead', 'client', 'past_client']).optional(),
+  category: z
+    .enum([
+      'potential_buyer',
+      'potential_seller',
+      'signed_buyer',
+      'signed_seller',
+      'potential_lender',
+      'potential_tenant',
+    ])
+    .optional(),
+  source: z.enum(['referral', 'website', 'social_media', 'cold_call', 'other']).optional(),
   role: z.enum(['buyer', 'seller', 'lender', 'tenant', 'landlord', 'other']).optional(),
-  tags: z.array(z.string()).default([]),
-
-  budgetMin: z.number().positive().max(999999999, 'Budget too large (max $999,999,999)').optional(),
-  budgetMax: z.number().positive().max(999999999, 'Budget too large (max $999,999,999)').optional(),
-
-  notes: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  budgetMin: z.number().nonnegative().optional(),
+  budgetMax: z.number().nonnegative().optional(),
+  notes: z.string().max(10000).optional().or(z.literal('')),
   customFields: z.record(z.string(), z.any()).optional(),
 })
 

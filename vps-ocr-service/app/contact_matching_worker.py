@@ -102,6 +102,10 @@ class ContactMatchingWorker:
                 candidate_info.append(f"  Email: {candidate['email']}")
             if candidate.get("phone"):
                 candidate_info.append(f"  Phone: {candidate['phone']}")
+            if candidate.get("date_of_birth"):
+                candidate_info.append(f"  Date of Birth: {candidate['date_of_birth']}")
+            if candidate.get("place_of_birth"):
+                candidate_info.append(f"  Place of Birth: {candidate['place_of_birth']}")
             if candidate.get("company"):
                 candidate_info.append(f"  Company: {candidate['company']}")
             if candidate.get("job_title"):
@@ -142,14 +146,18 @@ class ContactMatchingWorker:
 1. Determine which candidate (if any) best matches the extracted name
 2. Consider:
    - Name similarity (exact match, nicknames, spelling variations)
+   - **Date of birth and place of birth** (CRITICAL for ID/passport/identification documents)
    - If multiple candidates have similar names, use context clues:
+     * **Dates of birth from document** (IDs, passports always show this)
+     * **Places of birth from document** (IDs, passports always show this)
      * Locations/addresses mentioned in the document
      * Company names
      * Email addresses or phone numbers
      * Job titles
 3. **IMPORTANT:** If the document mentions specific locations/addresses, prioritize candidates from those locations
-4. Be conservative - only match if you're confident (>= 0.75 certainty)
-5. If unsure or no good match, return "none"
+4. **IMPORTANT:** For identification documents (IDs, passports, DNI, NIE), date and place of birth are the strongest matching signals
+5. Be conservative - only match if you're confident (>= 0.75 certainty)
+6. If unsure or no good match, return "none"
 
 **Response format (JSON only, no explanation):**
 ```json

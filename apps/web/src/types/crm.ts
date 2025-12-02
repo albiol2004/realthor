@@ -35,6 +35,8 @@ export interface Contact {
   email?: string
   phone?: string
   profilePictureUrl?: string
+  dateOfBirth?: Date // For ID/passport matching
+  placeOfBirth?: string // For ID/passport matching (e.g., "Valencia, Spain")
 
   // Professional Information
   company?: string
@@ -92,6 +94,8 @@ export interface CreateContactInput {
   email?: string
   phone?: string
   profilePictureUrl?: string
+  dateOfBirth?: Date
+  placeOfBirth?: string
   company?: string
   jobTitle?: string
   addressStreet?: string

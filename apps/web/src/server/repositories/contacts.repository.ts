@@ -205,6 +205,8 @@ export class ContactsRepository {
         email: input.email || null,
         phone: input.phone || null,
         profile_picture_url: input.profilePictureUrl || null,
+        date_of_birth: input.dateOfBirth || null,
+        place_of_birth: input.placeOfBirth || null,
         company: input.company || null,
         job_title: input.jobTitle || null,
         address_street: input.addressStreet || null,
@@ -247,6 +249,8 @@ export class ContactsRepository {
     if (input.phone !== undefined) updateData.phone = input.phone || null
     if (input.profilePictureUrl !== undefined)
       updateData.profile_picture_url = input.profilePictureUrl || null
+    if (input.dateOfBirth !== undefined) updateData.date_of_birth = input.dateOfBirth || null
+    if (input.placeOfBirth !== undefined) updateData.place_of_birth = input.placeOfBirth || null
     if (input.company !== undefined) updateData.company = input.company || null
     if (input.jobTitle !== undefined) updateData.job_title = input.jobTitle || null
     if (input.addressStreet !== undefined)
@@ -399,6 +403,8 @@ export class ContactsRepository {
       email: row.email,
       phone: row.phone,
       profilePictureUrl: row.profile_picture_url,
+      dateOfBirth: row.date_of_birth ? new Date(row.date_of_birth) : undefined,
+      placeOfBirth: row.place_of_birth,
       company: row.company,
       jobTitle: row.job_title,
       addressStreet: row.address_street,

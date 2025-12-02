@@ -61,46 +61,50 @@ export function ContactForm({
     resolver: zodResolver(schema) as any,
     defaultValues: initialData
       ? {
-          firstName: initialData.firstName,
-          lastName: initialData.lastName,
-          email: initialData.email || '',
-          phone: initialData.phone || '',
-          ...(!isQuickCreate && {
-            company: initialData.company || '',
-            jobTitle: initialData.jobTitle || '',
-            addressStreet: initialData.addressStreet || '',
-            addressCity: initialData.addressCity || '',
-            addressState: initialData.addressState || '',
-            addressZip: initialData.addressZip || '',
-            addressCountry: initialData.addressCountry || 'US',
-            status: initialData.status,
-            category: initialData.category,
-            source: initialData.source,
-            role: initialData.role,
-            tags: initialData.tags,
-            budgetMin: initialData.budgetMin,
-            budgetMax: initialData.budgetMax,
-            notes: initialData.notes || '',
-          }),
-        }
+        firstName: initialData.firstName,
+        lastName: initialData.lastName,
+        email: initialData.email || '',
+        phone: initialData.phone || '',
+        ...(!isQuickCreate && {
+          dateOfBirth: initialData.dateOfBirth,
+          placeOfBirth: initialData.placeOfBirth || '',
+          company: initialData.company || '',
+          jobTitle: initialData.jobTitle || '',
+          addressStreet: initialData.addressStreet || '',
+          addressCity: initialData.addressCity || '',
+          addressState: initialData.addressState || '',
+          addressZip: initialData.addressZip || '',
+          addressCountry: initialData.addressCountry || 'US',
+          status: initialData.status,
+          category: initialData.category,
+          source: initialData.source,
+          role: initialData.role,
+          tags: initialData.tags,
+          budgetMin: initialData.budgetMin,
+          budgetMax: initialData.budgetMax,
+          notes: initialData.notes || '',
+        }),
+      }
       : {
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          ...(!isQuickCreate && {
-            company: '',
-            jobTitle: '',
-            addressStreet: '',
-            addressCity: '',
-            addressState: '',
-            addressZip: '',
-            addressCountry: 'US',
-            status: 'lead',
-            tags: [],
-            notes: '',
-          }),
-        },
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        ...(!isQuickCreate && {
+          dateOfBirth: undefined,
+          placeOfBirth: '',
+          company: '',
+          jobTitle: '',
+          addressStreet: '',
+          addressCity: '',
+          addressState: '',
+          addressZip: '',
+          addressCountry: 'US',
+          status: 'lead',
+          tags: [],
+          notes: '',
+        }),
+      },
   })
 
   const handleSubmit = async (data: CreateContactInput) => {
@@ -192,6 +196,57 @@ export function ContactForm({
                   )}
                 />
               </div>
+
+              {/* Date of Birth and Place of Birth (for ID/passport matching) */}
+              {!isQuickCreate && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="dateOfBirth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date of Birth</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            {...field}
+                            value={
+                              field.value instanceof Date
+                                ? field.value.toISOString().split('T')[0]
+                                : field.value || ''
+                            }
+                            onChange={(e) => {
+                              const date = e.target.value ? new Date(e.target.value) : undefined
+                              field.onChange(date)
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Helps match IDs and passports
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="placeOfBirth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Place of Birth</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Valencia, Spain" {...field} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Helps match IDs and passports
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Full Form Only */}
@@ -415,7 +470,7 @@ export function ContactForm({
                         </FormItem>
                       )}
                     />
-                </div>
+                  </div>
                 </div>
 
                 {/* Budget */}

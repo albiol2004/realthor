@@ -14,12 +14,25 @@ export default function MessagesPage() {
     const [activeTab, setActiveTab] = useState("email");
     const utils = trpc.useUtils();
 
-    const { data: emailAccounts } = trpc.emailSettings.list.useQuery();
+    // Email accounts - cache aggressively (rarely change)
+    const { data: emailAccounts } = trpc.emailSettings.list.useQuery(
+        undefined,
+        {
+            staleTime: 1000 * 60 * 10, // 10 minutes
+            gcTime: 1000 * 60 * 30, // 30 minutes in memory
+        }
+    );
 
-    // Get all emails from all accounts
-    const { data: allEmails, isLoading } = trpc.messaging.getContactEmails.useQuery({
-        contactEmails: [], // Empty to get all emails
-    });
+    // Get all emails from all accounts - shorter cache (more dynamic)
+    const { data: allEmails, isLoading } = trpc.messaging.getContactEmails.useQuery(
+        {
+            contactEmails: [], // Empty to get all emails
+        },
+        {
+            staleTime: 1000 * 60 * 2, // 2 minutes - emails update more frequently
+            gcTime: 1000 * 60 * 30, // 30 minutes in memory
+        }
+    );
 
     // Sync all email accounts
     const syncAllAccounts = trpc.emailSettings.syncNow.useMutation({

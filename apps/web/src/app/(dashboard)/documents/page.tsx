@@ -26,6 +26,9 @@ export default function DocumentsPage() {
       enabled: !!selectedDocumentId,
       // Refetch when window regains focus (desktop-app behavior)
       refetchOnWindowFocus: true,
+      // Aggressive caching for documents
+      staleTime: 1000 * 60 * 3, // 3 minutes - document metadata doesn't change often
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
     }
   )
 

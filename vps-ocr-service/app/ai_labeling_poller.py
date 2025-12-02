@@ -157,9 +157,16 @@ class AILabelingPoller:
 
         matched_contacts = []
 
+        # Build document context for AI matching
+        document_context = {
+            "extracted_addresses": extracted_addresses,
+        }
+
         # Match contacts from extracted names
         if extracted_names:
             logger.info(f"📝 Extracted names: {', '.join(extracted_names)}")
+            if extracted_addresses:
+                logger.info(f"📍 Extracted addresses: {', '.join(extracted_addresses)}")
 
             for name in extracted_names:
                 try:
@@ -177,10 +184,11 @@ class AILabelingPoller:
 
                     logger.info(f"✅ Found {len(candidates)} contact candidate(s) for '{name}'")
 
-                    # Step 2: Use AI to choose the best match
+                    # Step 2: Use AI to choose the best match (with document context)
                     matched_contact_id = await self.contact_matcher.match_contact(
                         extracted_name=name,
-                        candidates=candidates
+                        candidates=candidates,
+                        document_context=document_context
                     )
 
                     # Step 3: Link if confident match found

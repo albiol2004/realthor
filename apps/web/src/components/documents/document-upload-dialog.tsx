@@ -184,7 +184,9 @@ export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId
 
   // Invalidate queries
   const invalidateQueries = async () => {
+    // Invalidate all document queries to show new uploads immediately
     await utils.documents.listAll.invalidate()
+    await utils.documents.search.invalidate() // For the main document list
 
     if (contactId) {
       await utils.documents.listByEntity.invalidate({ entityType: 'contact', entityId: contactId })

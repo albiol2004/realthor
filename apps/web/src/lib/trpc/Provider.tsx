@@ -38,14 +38,18 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Desktop-app-like responsiveness settings
-            staleTime: 1000 * 10, // 10 seconds - data is fresh for this long
-            gcTime: 1000 * 60 * 5, // 5 minutes - cache persists for this long
+            // 🚀 DISCORD-LIKE AGGRESSIVE CACHING
+            // Heavy memory usage for blazing fast performance
+            staleTime: 1000 * 60 * 3, // 3 minutes - data stays fresh (was 10s)
+            gcTime: 1000 * 60 * 30, // 30 minutes - keep in memory (was 5 min)
             refetchOnWindowFocus: true, // Refetch when window regains focus
             refetchOnReconnect: true, // Refetch when internet reconnects
             retry: 1, // Only retry failed requests once (faster failure feedback)
             retryDelay: 500, // 500ms between retries
-            networkMode: 'offlineFirst', // Use cache while network request is pending
+            networkMode: 'offlineFirst', // Use cache first, network in background
+            // Refetch in background to keep cache warm
+            refetchOnMount: false, // Don't refetch on mount if data is fresh
+            refetchInterval: false, // No automatic polling by default
           },
           mutations: {
             retry: 0, // Don't retry mutations (avoid duplicate operations)

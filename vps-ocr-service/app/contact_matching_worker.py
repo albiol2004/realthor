@@ -27,7 +27,8 @@ class ContactMatchingWorker:
     async def match_contact(
         self,
         extracted_name: str,
-        candidates: List[Dict[str, Any]]
+        candidates: List[Dict[str, Any]],
+        document_context: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
         """
         Use AI to match an extracted name to the best contact candidate.
@@ -35,6 +36,7 @@ class ContactMatchingWorker:
         Args:
             extracted_name: The name extracted from the document (e.g., "John Doe")
             candidates: List of contact candidates with their metadata
+            document_context: Additional context from document (addresses, locations, emails, phones)
 
         Returns:
             Contact ID if confident match found (confidence >= 0.8), else None
@@ -43,8 +45,8 @@ class ContactMatchingWorker:
             logger.debug(f"No candidates for '{extracted_name}', skipping match")
             return None
 
-        # Build prompt with candidates
-        prompt = self._build_matching_prompt(extracted_name, candidates)
+        # Build prompt with candidates and document context
+        prompt = self._build_matching_prompt(extracted_name, candidates, document_context)
 
         try:
             # Call Deepseek API
@@ -82,7 +84,8 @@ class ContactMatchingWorker:
     def _build_matching_prompt(
         self,
         extracted_name: str,
-        candidates: List[Dict[str, Any]]
+        candidates: List[Dict[str, Any]],
+        document_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build the prompt for AI contact matching"""
 
@@ -95,23 +98,42 @@ class ContactMatchingWorker:
                 f"  Name: {candidate['first_name']} {candidate['last_name']}",
             ]
 
-            if candidate.get('email'):
+            if candidate.get("email"):
                 candidate_info.append(f"  Email: {candidate['email']}")
-            if candidate.get('phone'):
+            if candidate.get("phone"):
                 candidate_info.append(f"  Phone: {candidate['phone']}")
-            if candidate.get('company'):
+            if candidate.get("company"):
                 candidate_info.append(f"  Company: {candidate['company']}")
-            if candidate.get('job_title'):
+            if candidate.get("job_title"):
                 candidate_info.append(f"  Job Title: {candidate['job_title']}")
-            if candidate.get('address_city') or candidate.get('address_state'):
-                location = f"{candidate.get('address_city', '')}, {candidate.get('address_state', '')}".strip(', ')
+            if candidate.get("address_city") or candidate.get("address_state"):
+                location = f"{candidate.get('address_city', '')}, {candidate.get('address_state', '')}".strip(
+                    ", "
+                )
                 candidate_info.append(f"  Location: {location}")
 
             candidates_text.append("\n".join(candidate_info))
 
+        # Build document context section
+        context_section = ""
+        if document_context:
+            context_parts = []
+
+            # Add extracted addresses/locations
+            if document_context.get("extracted_addresses"):
+                addresses = document_context["extracted_addresses"]
+                context_parts.append(f"**Locations/Addresses mentioned in document:** {', '.join(addresses)}")
+
+            # Add any other useful context
+            if document_context.get("ocr_snippet"):
+                context_parts.append(f"**Document text excerpt:** {document_context['ocr_snippet'][:300]}...")
+
+            if context_parts:
+                context_section = "\n\n" + "\n".join(context_parts) + "\n"
+
         prompt = f"""You are an expert at matching person names from documents to database contacts.
 
-**Extracted name from document:** "{extracted_name}"
+**Extracted name from document:** "{extracted_name}"{context_section}
 
 **Available contact candidates:**
 {chr(10).join(candidates_text)}
@@ -120,9 +142,14 @@ class ContactMatchingWorker:
 1. Determine which candidate (if any) best matches the extracted name
 2. Consider:
    - Name similarity (exact match, nicknames, spelling variations)
-   - If multiple candidates have similar names, context clues (company, location) may help
-3. Be conservative - only match if you're confident (>= 0.8 certainty)
-4. If unsure or no good match, return "none"
+   - If multiple candidates have similar names, use context clues:
+     * Locations/addresses mentioned in the document
+     * Company names
+     * Email addresses or phone numbers
+     * Job titles
+3. **IMPORTANT:** If the document mentions specific locations/addresses, prioritize candidates from those locations
+4. Be conservative - only match if you're confident (>= 0.75 certainty)
+5. If unsure or no good match, return "none"
 
 **Response format (JSON only, no explanation):**
 ```json
@@ -130,6 +157,33 @@ class ContactMatchingWorker:
   "contact_id": "candidate-id-here or 'none'",
   "confidence": 0.95,
   "reasoning": "Brief explanation of why this is the best match"
+}}
+```
+
+**Example:**
+
+**Extracted name from document:** "John Doe"
+
+**Locations/Addresses mentioned in document:** Basel, Switzerland
+
+**Available contact candidates:**
+Candidate 1:
+  ID: 123
+  Name: John Doe
+  Email: johndoe@example.com
+  Location: Valencia, Spain
+
+Candidate 2:
+  ID: 124
+  Name: John Doe
+  Email: johndoe@gmail.com
+  Location: Basel, Switzerland
+
+```json
+{{
+  "contact_id": "124",
+  "confidence": 0.95,
+  "reasoning": "Name matches and contact location (Basel, Switzerland) matches the document location"
 }}
 ```"""
 
@@ -147,9 +201,7 @@ class ContactMatchingWorker:
                 },
                 json={
                     "model": self.model,
-                    "messages": [
-                        {"role": "user", "content": prompt}
-                    ],
+                    "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.1,  # Low temperature for deterministic matching
                     "max_tokens": 300,
                     "response_format": {"type": "json_object"},
@@ -185,7 +237,9 @@ class ContactMatchingWorker:
             return result
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse AI matching response: {e}\nResponse: {response}")
+            logger.error(
+                f"Failed to parse AI matching response: {e}\nResponse: {response}"
+            )
             return {"contact_id": "none", "confidence": 0.0, "reasoning": "Parse error"}
         except Exception as e:
             logger.error(f"Error parsing matching response: {e}")

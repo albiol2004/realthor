@@ -32,12 +32,28 @@ export function DocumentList({
   }, [searchQuery])
 
   // Use smart search (full-text on OCR + filename)
-  const { data: documents, isLoading } = trpc.documents.search.useQuery({
-    query: debouncedQuery || undefined,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-    limit: 100,
-  })
+  // Aggressive caching - document list doesn't change often
+  // BUT: Poll every 3s if any document is being AI labeled
+  const { data: documents, isLoading } = trpc.documents.search.useQuery(
+    {
+      query: debouncedQuery || undefined,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      limit: 100,
+    },
+    {
+      staleTime: 1000 * 60 * 3, // 3 minutes - documents don't change frequently
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+      // Poll every 3 seconds if AI labeling is in progress
+      refetchInterval: (query): number | false => {
+        const data = query.state.data
+        if (!data) return false
+        // Check if any document is being AI labeled
+        const hasAILabeling = data.some((doc: Document) => doc.ocrStatus === 'completed' && !doc.aiProcessedAt)
+        return hasAILabeling ? 3000 : false
+      },
+    }
+  )
 
   const filteredDocuments = documents
 

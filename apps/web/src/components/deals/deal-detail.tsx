@@ -68,45 +68,73 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
 
   const utils = trpc.useUtils()
 
-  // Fetch related contact IDs
+  // Fetch related contact IDs - aggressive caching
   const { data: contactIds } = trpc.deals.getRelatedContactIds.useQuery(
-    { dealId: deal.id }
+    { dealId: deal.id },
+    {
+      staleTime: 1000 * 60 * 3, // 3 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
   )
 
-  // Fetch related property IDs
+  // Fetch related property IDs - aggressive caching
   const { data: propertyIds } = trpc.deals.getRelatedPropertyIds.useQuery(
-    { dealId: deal.id }
+    { dealId: deal.id },
+    {
+      staleTime: 1000 * 60 * 3, // 3 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
   )
 
-  // Fetch all contacts for this deal
+  // Fetch all contacts for this deal - aggressive caching
   const { data: allContactsData } = trpc.contacts.list.useQuery(
     { limit: 100 },
-    { enabled: (contactIds?.length ?? 0) > 0 }
+    {
+      enabled: (contactIds?.length ?? 0) > 0,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
   )
   const allContacts = allContactsData?.contacts?.filter(c => contactIds?.includes(c.id)) || []
 
-  // Fetch all properties for this deal
+  // Fetch all properties for this deal - aggressive caching
   const { data: allPropertiesData } = trpc.properties.list.useQuery(
     { limit: 100 },
-    { enabled: (propertyIds?.length ?? 0) > 0 }
+    {
+      enabled: (propertyIds?.length ?? 0) > 0,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
   )
   const allProperties = allPropertiesData?.properties?.filter((p: any) => propertyIds?.includes(p.id)) || []
 
-  // Search for contacts to add
+  // Search for contacts to add - short cache (search results)
   const { data: contactResults, isLoading: isLoadingContacts } = trpc.contacts.search.useQuery(
     { query: contactSearch, limit: 10 },
-    { enabled: contactSearch.length > 0 }
+    {
+      enabled: contactSearch.length > 0,
+      staleTime: 1000 * 30, // 30 seconds - search results can be shorter
+      gcTime: 1000 * 60 * 5, // 5 minutes in memory
+    }
   )
 
-  // Search for properties to add
+  // Search for properties to add - short cache (search results)
   const { data: propertyResults, isLoading: isLoadingProperties } = trpc.properties.search.useQuery(
     { query: propertySearch, limit: 10 },
-    { enabled: propertySearch.length > 0 }
+    {
+      enabled: propertySearch.length > 0,
+      staleTime: 1000 * 30, // 30 seconds - search results can be shorter
+      gcTime: 1000 * 60 * 5, // 5 minutes in memory
+    }
   )
 
-  // Fetch compliance data
+  // Fetch compliance data - moderate caching
   const { data: compliance, isLoading: complianceLoading } = trpc.deals.getCompliance.useQuery(
-    { dealId: deal.id }
+    { dealId: deal.id },
+    {
+      staleTime: 1000 * 60 * 2, // 2 minutes - can be calculated on demand
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
   )
 
   // Update mutation

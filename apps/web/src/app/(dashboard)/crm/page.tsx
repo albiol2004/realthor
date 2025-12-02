@@ -74,20 +74,36 @@ export default function CRMPage() {
     return baseFilters
   }, [searchQuery, selectedCategory])
 
-  // Queries
-  const { data: contactsData, isLoading: isLoadingContacts } = trpc.contacts.list.useQuery(filters)
+  // Queries - Aggressive caching for contacts (they don't change often)
+  const { data: contactsData, isLoading: isLoadingContacts } = trpc.contacts.list.useQuery(
+    filters,
+    {
+      staleTime: 1000 * 60 * 5, // 5 minutes - contacts don't change frequently
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
+  )
 
   // Fetch ALL contacts without category filter for accurate counts
-  const { data: allContactsData } = trpc.contacts.list.useQuery({
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-    limit: 1000, // High limit to get all contacts for counting
-    offset: 0,
-  })
+  const { data: allContactsData } = trpc.contacts.list.useQuery(
+    {
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      limit: 1000, // High limit to get all contacts for counting
+      offset: 0,
+    },
+    {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
+  )
 
   const { data: selectedContact, isLoading: isLoadingContact } = trpc.contacts.getById.useQuery(
     { id: selectedContactId! },
-    { enabled: !!selectedContactId }
+    {
+      enabled: !!selectedContactId,
+      staleTime: 1000 * 60 * 5, // 5 minutes - individual contacts cached long
+      gcTime: 1000 * 60 * 30, // 30 minutes in memory
+    }
   )
 
   // Mutations

@@ -83,11 +83,27 @@ export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      const errorMessage = error.details
-        ? `${error.error}: ${error.details}`
-        : error.error || "Upload failed"
-      throw new Error(errorMessage)
+      // Check if response is JSON before trying to parse it
+      // VPS sometimes returns HTML error pages instead of JSON
+      const contentType = response.headers.get("content-type")
+
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          const error = await response.json()
+          const errorMessage = error.details
+            ? `${error.error}: ${error.details}`
+            : error.error || "Upload failed"
+          throw new Error(errorMessage)
+        } catch (jsonError) {
+          // If JSON parsing fails, fall back to generic error
+          throw new Error(`Upload failed with status ${response.status}`)
+        }
+      } else {
+        // Non-JSON response (likely HTML error page from server)
+        const errorText = await response.text()
+        console.error("Server error response:", errorText)
+        throw new Error(`Upload failed: Server returned ${response.status} error`)
+      }
     }
 
     return response.json()

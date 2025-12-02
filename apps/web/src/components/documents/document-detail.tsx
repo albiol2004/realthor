@@ -326,7 +326,25 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* AI Labeling Overlay - Gray out content while processing */}
+      {isAILabelingInProgress && (
+        <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl flex flex-col items-center gap-4 max-w-sm mx-4">
+            <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">AI Processing Document</h3>
+              <p className="text-sm text-muted-foreground">
+                Analyzing document content and extracting metadata...
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                This usually takes 10-30 seconds
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-start justify-between gap-4">

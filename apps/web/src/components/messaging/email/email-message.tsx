@@ -48,12 +48,32 @@ export function EmailMessage({ email }: EmailMessageProps) {
         }
     };
 
-    // Extract text preview (first 150 chars)
-    const getTextPreview = (html: string | null) => {
-        if (!html) return "No content";
+    // Render email body (handles both plain text and HTML)
+    const renderEmailBody = (body: string | null) => {
+        if (!body) return "No content"
+
+        // Detect if email is HTML (contains HTML tags)
+        const isHTML = /<[a-z][\s\S]*>/i.test(body)
+
+        if (isHTML) {
+            // Already HTML, render as-is
+            return body
+        } else {
+            // Plain text: Convert newlines to <br> tags
+            return body
+                .replace(/\r\n/g, '\n')  // Normalize Windows line endings
+                .replace(/\n/g, '<br>')  // Convert \n to <br>
+        }
+    }
+
+    // Extract text preview (first 150 chars, flattened)
+    const getTextPreview = (body: string | null) => {
+        if (!body) return "No content"
         // Strip HTML tags
-        const text = html.replace(/<[^>]*>/g, '');
-        return text.length > 150 ? text.substring(0, 150) + '...' : text;
+        const text = body.replace(/<[^>]*>/g, '')
+        // Flatten newlines for preview (single line)
+        const normalized = text.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
+        return normalized.length > 150 ? normalized.substring(0, 150) + '...' : normalized
     };
 
     return (
@@ -147,7 +167,7 @@ export function EmailMessage({ email }: EmailMessageProps) {
                     {/* Email Body - Scrollable */}
                     <div className="flex-1 overflow-y-auto p-4 border rounded-md bg-gray-50 dark:bg-gray-900">
                         <div className="prose prose-sm max-w-none dark:prose-invert">
-                            <div dangerouslySetInnerHTML={{ __html: email.body || "No content" }} />
+                            <div dangerouslySetInnerHTML={{ __html: renderEmailBody(email.body) }} />
                         </div>
                     </div>
 

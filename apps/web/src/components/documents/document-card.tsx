@@ -27,6 +27,18 @@ export function DocumentCard({ document, isSelected, onClick }: DocumentCardProp
   const getStatusBadge = () => {
     const status = document.ocrStatus || "pending"
 
+    // Check if AI labeling is in progress (OCR completed but AI not processed yet)
+    const isAILabeling = status === "completed" && !document.aiProcessedAt
+
+    if (isAILabeling) {
+      return (
+        <Badge variant="default" className="text-xs bg-purple-600 hover:bg-purple-700">
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          AI Labeling
+        </Badge>
+      )
+    }
+
     const statusConfig: Record<OCRStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ReactNode }> = {
       pending: {
         label: "Pending",

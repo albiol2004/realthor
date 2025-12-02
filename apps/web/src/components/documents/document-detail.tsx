@@ -114,6 +114,25 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
     setPropertiesLoaded(false)
   }, [document])
 
+  // ✨ BUG FIX: Automatically detect when AI labeling is in progress
+  // When OCR completes via webhook, AI labeling starts automatically
+  // We need to start polling to show the AI labeling status
+  useEffect(() => {
+    const isAILabelingActive = document.ocrStatus === "completed" && !document.aiProcessedAt
+
+    if (isAILabelingActive && !isAILabelingInProgress) {
+      // AI labeling just started - begin polling
+      setIsAILabelingInProgress(true)
+      setAiLabelingStartTime(Date.now())
+      console.log("🔍 Detected AI labeling in progress, starting polling...")
+    } else if (!isAILabelingActive && isAILabelingInProgress) {
+      // AI labeling completed or document changed - stop polling
+      setIsAILabelingInProgress(false)
+      setAiLabelingStartTime(null)
+      console.log("✅ AI labeling completed, stopping polling")
+    }
+  }, [document.ocrStatus, document.aiProcessedAt, isAILabelingInProgress])
+
   // Update local state when AI processing completes (polledDocument)
   useEffect(() => {
     if (polledDocument && polledDocument.aiProcessedAt) {

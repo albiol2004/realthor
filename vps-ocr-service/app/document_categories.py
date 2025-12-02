@@ -220,21 +220,25 @@ OTHER:
 1. **category**: Select ONE category value from above (use the exact snake_case identifier, NOT the description)
 2. **extracted_names**: Extract ALL person names (clients, notaries, agents) as separate items
 3. **extracted_addresses**: Extract ALL property addresses mentioned
-4. **document_date**: Primary document date (issue date, signing date, or most recent date) in YYYY-MM-DD format
-5. **due_date**: Expiration or deadline date (if any) in YYYY-MM-DD format
-6. **description**: Write a concise 1-2 sentence summary in English
-7. **has_signature**: true if you see words like "signed", "signature", "firmado", "firma"
-8. **confidence**: Score 0.0-1.0 for each field (use 0.0 for missing/uncertain fields)
+4. **extracted_date_of_birth**: For ID documents (dni_nie_passport), extract the person's date of birth in YYYY-MM-DD format
+5. **extracted_place_of_birth**: For ID documents (dni_nie_passport), extract the person's place of birth (city/country)
+6. **document_date**: Primary document date (issue date, signing date, or most recent date) in YYYY-MM-DD format
+7. **due_date**: Expiration or deadline date (if any) in YYYY-MM-DD format
+8. **description**: Write a concise 1-2 sentence summary in English
+9. **has_signature**: true if you see words like "signed", "signature", "firmado", "firma"
+10. **confidence**: Score 0.0-1.0 for each field (use 0.0 for missing/uncertain fields)
 
 **CRITICAL RULES:**
 - For category: Use ONLY the exact snake_case values listed above (e.g., "dni_nie_passport" NOT "DNI" or "DNI, NIE, Passport")
 - If a DNI, NIE, or Passport is detected, use "dni_nie_passport" (singular value)
+- **FOR ID DOCUMENTS (dni_nie_passport): ALWAYS extract date_of_birth and place_of_birth if visible** - these are CRITICAL for matching to contacts
 - If a field is not found or you're uncertain, set it to null and confidence to 0.0
 - Only null fields will be skipped; other fields will update the database
 - Be conservative with confidence scores; use < 0.7 for uncertain data
 - Names should be "First Last" format, not reversed
 - Addresses should include street, city, and any identifying details
 - Dates must be in YYYY-MM-DD format
+- Look for these ID-specific fields: "Fecha de nacimiento", "Date of birth", "Lugar de nacimiento", "Place of birth", "Born in"
 
 **RESPONSE FORMAT:**
 Return valid JSON only, no explanation:
@@ -243,18 +247,26 @@ Return valid JSON only, no explanation:
   "category": "dni_nie_passport",
   "extracted_names": ["Name 1", "Name 2"],
   "extracted_addresses": ["Address 1"],
+  "extracted_date_of_birth": "1990-05-15",
+  "extracted_place_of_birth": "Madrid, Spain",
   "document_date": "YYYY-MM-DD",
   "due_date": "YYYY-MM-DD",
   "description": "Brief summary here",
   "has_signature": true,
   "confidence": {
     "category": 0.95,
+    "extracted_date_of_birth": 0.92,
+    "extracted_place_of_birth": 0.85,
     "document_date": 0.88,
     "due_date": 0.0,
     "has_signature": 0.90
   }
 }
 ```
+
+**NOTES:**
+- For non-ID documents, extracted_date_of_birth and extracted_place_of_birth should be null
+- For ID documents (dni_nie_passport), these fields are CRITICAL for contact matching
 """
 
 

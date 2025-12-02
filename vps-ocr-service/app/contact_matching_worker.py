@@ -123,6 +123,15 @@ class ContactMatchingWorker:
         if document_context:
             context_parts = []
 
+            # ✨ ADD EXTRACTED DATES FROM DOCUMENT (CRITICAL FOR ID MATCHING!)
+            if document_context.get("extracted_date_of_birth"):
+                date_of_birth = document_context["extracted_date_of_birth"]
+                context_parts.append(f"**🎂 Date of birth shown in document:** {date_of_birth}")
+
+            if document_context.get("extracted_place_of_birth"):
+                place_of_birth = document_context["extracted_place_of_birth"]
+                context_parts.append(f"**🌍 Place of birth shown in document:** {place_of_birth}")
+
             # Add extracted addresses/locations
             if document_context.get("extracted_addresses"):
                 addresses = document_context["extracted_addresses"]
@@ -144,20 +153,22 @@ class ContactMatchingWorker:
 
 **Your task:**
 1. Determine which candidate (if any) best matches the extracted name
-2. Consider:
-   - Name similarity (exact match, nicknames, spelling variations)
-   - **Date of birth and place of birth** (CRITICAL for ID/passport/identification documents)
-   - If multiple candidates have similar names, use context clues:
-     * **Dates of birth from document** (IDs, passports always show this)
-     * **Places of birth from document** (IDs, passports always show this)
-     * Locations/addresses mentioned in the document
-     * Company names
-     * Email addresses or phone numbers
-     * Job titles
-3. **IMPORTANT:** If the document mentions specific locations/addresses, prioritize candidates from those locations
-4. **IMPORTANT:** For identification documents (IDs, passports, DNI, NIE), date and place of birth are the strongest matching signals
-5. Be conservative - only match if you're confident (>= 0.75 certainty)
-6. If unsure or no good match, return "none"
+2. **MATCHING PRIORITY (highest to lowest):**
+   - **🥇 FIRST PRIORITY: Date of birth + Place of birth** (if document provides these, they are the STRONGEST matching signals)
+     * If document shows date_of_birth and a candidate matches it → VERY HIGH confidence (0.95+)
+     * If document shows place_of_birth and a candidate matches it → HIGH confidence (0.85+)
+     * If BOTH match → DEFINITIVE match (0.99) - this is almost certainly the same person
+   - **🥈 SECOND PRIORITY: Name similarity + Location context**
+     * Exact name match + matching location → High confidence (0.85+)
+     * Name match + partial location match → Medium confidence (0.75+)
+   - **🥉 THIRD PRIORITY: Name similarity + Other context clues**
+     * Company names, email domains, phone numbers, job titles
+3. **CRITICAL FOR ID DOCUMENTS:**
+   - For identification documents (IDs, passports, DNI, NIE), date_of_birth and place_of_birth are DEFINITIVE identifiers
+   - If the document provides these fields and a candidate matches, you can be 99% confident
+   - If multiple candidates have the same name but different dates of birth, ONLY match the one with the correct date
+4. Be conservative - only match if you're confident (>= 0.75 certainty)
+5. If unsure or no good match, return "none"
 
 **Response format (JSON only, no explanation):**
 ```json
@@ -168,7 +179,7 @@ class ContactMatchingWorker:
 }}
 ```
 
-**Example:**
+**Example 1 (Location matching):**
 
 **Extracted name from document:** "John Doe"
 
@@ -192,6 +203,37 @@ Candidate 2:
   "contact_id": "124",
   "confidence": 0.95,
   "reasoning": "Name matches and contact location (Basel, Switzerland) matches the document location"
+}}
+```
+
+**Example 2 (Date of birth matching for IDs - CRITICAL):**
+
+**Extracted name from document:** "Maria Garcia"
+
+**🎂 Date of birth shown in document:** 1990-05-15
+
+**🌍 Place of birth shown in document:** Madrid, Spain
+
+**Available contact candidates:**
+Candidate 1:
+  ID: 456
+  Name: Maria Garcia
+  Date of Birth: 1990-05-15
+  Place of Birth: Madrid, Spain
+  Email: maria.garcia@example.com
+
+Candidate 2:
+  ID: 457
+  Name: Maria Garcia
+  Date of Birth: 1985-03-20
+  Place of Birth: Barcelona, Spain
+  Email: maria.garcia@gmail.com
+
+```json
+{{
+  "contact_id": "456",
+  "confidence": 0.99,
+  "reasoning": "EXACT MATCH: Name, date of birth (1990-05-15), and place of birth (Madrid, Spain) all match perfectly. This is the correct person."
 }}
 ```"""
 

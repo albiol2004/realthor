@@ -146,12 +146,16 @@ class AILabelingWorker:
           "category": "Document Type",
           "extracted_names": ["Name 1", "Name 2"],
           "extracted_addresses": ["Address 1"],
+          "extracted_date_of_birth": "1990-05-15",
+          "extracted_place_of_birth": "Madrid, Spain",
           "document_date": "2024-03-15",
           "due_date": null,
           "description": "Brief summary",
           "has_signature": true,
           "confidence": {
             "category": 0.95,
+            "extracted_date_of_birth": 0.92,
+            "extracted_place_of_birth": 0.85,
             "document_date": 0.88,
             ...
           }
@@ -169,6 +173,8 @@ class AILabelingWorker:
                 "category": data.get("category"),
                 "extracted_names": data.get("extracted_names", []),
                 "extracted_addresses": data.get("extracted_addresses", []),
+                "extracted_date_of_birth": data.get("extracted_date_of_birth"),  # NEW FIELD
+                "extracted_place_of_birth": data.get("extracted_place_of_birth"),  # NEW FIELD
                 "document_date": data.get("document_date"),
                 "due_date": data.get("due_date"),
                 "description": data.get("description"),

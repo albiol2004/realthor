@@ -154,12 +154,17 @@ class AILabelingPoller:
         """
         extracted_names = metadata.get("extracted_names", [])
         extracted_addresses = metadata.get("extracted_addresses", [])
+        extracted_date_of_birth = metadata.get("extracted_date_of_birth")  # NEW: For ID documents
+        extracted_place_of_birth = metadata.get("extracted_place_of_birth")  # NEW: For ID documents
 
         matched_contacts = []
 
         # Build document context for AI matching
+        # These fields help the AI matcher make better decisions, especially for ID documents
         document_context = {
             "extracted_addresses": extracted_addresses,
+            "extracted_date_of_birth": extracted_date_of_birth,  # CRITICAL for ID matching
+            "extracted_place_of_birth": extracted_place_of_birth,  # CRITICAL for ID matching
         }
 
         # Match contacts from extracted names
@@ -167,6 +172,10 @@ class AILabelingPoller:
             logger.info(f"📝 Extracted names: {', '.join(extracted_names)}")
             if extracted_addresses:
                 logger.info(f"📍 Extracted addresses: {', '.join(extracted_addresses)}")
+            if extracted_date_of_birth:
+                logger.info(f"🎂 Extracted date of birth: {extracted_date_of_birth}")
+            if extracted_place_of_birth:
+                logger.info(f"🌍 Extracted place of birth: {extracted_place_of_birth}")
 
             for name in extracted_names:
                 try:

@@ -98,9 +98,10 @@ class AILabelingPoller:
 
         Steps:
         1. Call AI worker to label document
-        2. Save metadata to database
+        2. Save metadata to database (WITHOUT ai_processed_at)
         3. Match contacts/properties from extracted names/addresses
-        4. Update queue status
+        4. Mark AI processing complete (sets ai_processed_at timestamp)
+        5. Update queue status
         """
         logger.info(f"🤖 Processing AI labeling job: {job.document_id} (trigger: {job.trigger_type})")
 
@@ -119,14 +120,19 @@ class AILabelingPoller:
             )
 
             # Step 2: Save AI labeling result to database
-            logger.info(f"[2/3] Saving AI labels to database")
+            logger.info(f"[2/4] Saving AI labels to database")
             await Database.save_ai_labeling_result(job.document_id, metadata)
 
-            # Step 3: Match contacts/properties (TODO: implement matching service)
-            logger.info(f"[3/3] Matching contacts/properties")
+            # Step 3: Match contacts/properties
+            logger.info(f"[3/4] Matching contacts/properties")
             await self._match_entities(job.document_id, job.user_id, metadata)
 
-            # Step 4: Update queue status to completed
+            # Step 4: Mark AI processing as complete (AFTER contact matching!)
+            # This sets ai_processed_at so the frontend knows everything is done
+            logger.info(f"[4/4] Marking AI processing complete")
+            await Database.mark_ai_processing_complete(job.document_id)
+
+            # Step 5: Update queue status to completed
             await Database.update_ai_labeling_job_status(
                 queue_id=job.queue_id, status="completed"
             )

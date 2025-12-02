@@ -329,8 +329,9 @@ class Database:
                     params.append(metadata["ai_confidence"])
                     param_num += 1
 
-                # Always update ai_processed_at
-                update_fields.append("ai_processed_at = NOW()")
+                # ✨ DO NOT SET ai_processed_at HERE
+                # It will be set AFTER contact matching completes
+                # See: mark_ai_processing_complete() method
 
                 # Add document_id as last param
                 params.append(document_id)
@@ -348,6 +349,34 @@ class Database:
 
         except Exception as e:
             logger.error(f"Failed to save AI labeling result: {e}")
+            raise
+
+    @classmethod
+    async def mark_ai_processing_complete(cls, document_id: str):
+        """
+        Mark AI processing as complete (sets ai_processed_at timestamp)
+
+        This should be called AFTER contact matching completes, so the frontend
+        knows that ALL AI processing (including contact linking) is done.
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE documents
+                    SET ai_processed_at = NOW()
+                    WHERE id = $1
+                    """,
+                    document_id,
+                )
+
+            logger.info(f"✅ Marked AI processing complete for document {document_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to mark AI processing complete: {e}")
             raise
 
     @classmethod

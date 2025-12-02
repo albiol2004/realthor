@@ -64,22 +64,27 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
   const [contactOpen, setContactOpen] = useState(false)
   const [propertyOpen, setPropertyOpen] = useState(false)
 
-  // Poll for AI labeling completion
-  // This query only runs when AI labeling is in progress
+  // Poll for document processing status
+  // This query runs when:
+  // 1. OCR is pending or processing (waiting for OCR to complete)
+  // 2. AI labeling is in progress (OCR completed, waiting for AI + contact matching)
+  const isOCRInProgress = document.ocrStatus === "pending" || document.ocrStatus === "processing"
+  const shouldPoll = isOCRInProgress || isAILabelingInProgress
+
   const { data: polledDocument } = trpc.documents.getById.useQuery(
     { id: document.id },
     {
-      enabled: isAILabelingInProgress,
+      enabled: shouldPoll,
       refetchInterval: 3000, // Poll every 3 seconds
     }
   )
 
-  // Watch for AI labeling completion
+  // Watch for document processing updates
   useEffect(() => {
-    if (!isAILabelingInProgress || !polledDocument) return
+    if (!polledDocument) return
 
-    // Check if AI processing completed
-    if (polledDocument.aiProcessedAt) {
+    // Handle AI labeling completion
+    if (isAILabelingInProgress && polledDocument.aiProcessedAt) {
       setIsAILabelingInProgress(false)
       setAiLabelingStartTime(null)
       toast.success("AI labeling completed!")
@@ -92,13 +97,20 @@ export function DocumentDetail({ document, onClose, onUpdate }: DocumentDetailPr
       utils.documents.listByEntity.invalidate()
     }
 
+    // Handle OCR status changes (pending → processing → completed)
+    if (polledDocument.ocrStatus !== document.ocrStatus) {
+      console.log(`📄 OCR status changed: ${document.ocrStatus} → ${polledDocument.ocrStatus}`)
+      // Update parent component with new document state
+      onUpdate(polledDocument)
+    }
+
     // Timeout after 2 minutes
     if (aiLabelingStartTime && Date.now() - aiLabelingStartTime > 120000) {
       setIsAILabelingInProgress(false)
       setAiLabelingStartTime(null)
       toast.warning("AI labeling is taking longer than expected. Check back in a few minutes.")
     }
-  }, [polledDocument, isAILabelingInProgress, aiLabelingStartTime, utils])
+  }, [polledDocument, isAILabelingInProgress, aiLabelingStartTime, utils, document.ocrStatus, onUpdate])
 
   // Sync local state when document prop changes
   useEffect(() => {

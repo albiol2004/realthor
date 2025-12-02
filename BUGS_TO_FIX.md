@@ -1,4 +1,2 @@
-1. Responsiveness, specifically when adding contacts to deals, switching between different document details and after AI-labeling is done.
-We will have to add client side processing and big caching for optimistic updates, combined with specific react queries to make it seamless.
-2. Email parsing, no newlines are printed at the moment, I see everything in one line.
-3. Messages waiting for AI Labeling, instead of that I would like to show the card in the frontend with a loading symbol and fixing the need of refreshing the page to load new labels.
+1. Uploading documents, AI labeling polls to refresh but OCR doesnt poll to show AI-labeling loading sign then, it stays at processing.
+2. AI cant relate my ID to me, I have created 2 contacts with my name but different metadata to try and in one test it related correctly being an insurance policy with my full address on it. But it doesnt seem to be able to do it with Passports and IDs. I think we could add place and date of birth in our Contacts data in Supabase and in the frontend and include it in the metadata shown to AI to improve this. Apart from this seems to work just fine.

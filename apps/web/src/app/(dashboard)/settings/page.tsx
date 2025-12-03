@@ -42,7 +42,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto max-w-7xl px-4 py-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-black dark:text-white">
           Settings

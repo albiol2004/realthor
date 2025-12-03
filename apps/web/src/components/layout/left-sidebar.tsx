@@ -9,21 +9,19 @@ import {
   Briefcase,
   Building2,
   FileText,
-  Share2,
-  UserCog,
   Settings,
   MessageSquare,
 } from 'lucide-react'
 
 /**
- * Navigation items based on MVP_FEATURES.md
+ * Navigation items for MVP
  */
 const navigationItems = [
   {
     name: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
-    description: 'Action Center & AI Command Bar',
+    description: 'Action Center & Overview',
   },
   {
     name: 'CRM',
@@ -54,18 +52,6 @@ const navigationItems = [
     href: '/documents',
     icon: FileText,
     description: 'Document Library & Search',
-  },
-  {
-    name: 'Social',
-    href: '/social',
-    icon: Share2,
-    description: 'Lead Capture & Auto-Response',
-  },
-  {
-    name: 'Client Portal',
-    href: '/client-portal',
-    icon: UserCog,
-    description: 'Client Communication',
   },
   {
     name: 'Account',

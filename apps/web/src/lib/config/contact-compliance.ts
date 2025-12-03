@@ -285,6 +285,8 @@ export function calculateContactCompliance(
   recommended: { completed: number; total: number }
   optional: { completed: number; total: number }
   missingCritical: ContactDocumentRequirement[]
+  missingRecommended: ContactDocumentRequirement[]
+  missingOptional: ContactDocumentRequirement[]
 } {
   // If no role assigned, return 0
   if (!role) {
@@ -294,6 +296,8 @@ export function calculateContactCompliance(
       recommended: { completed: 0, total: 0 },
       optional: { completed: 0, total: 0 },
       missingCritical: [],
+      missingRecommended: [],
+      missingOptional: [],
     }
   }
 
@@ -324,8 +328,14 @@ export function calculateContactCompliance(
 
   const totalScore = Math.round(criticalScore + recommendedScore + optionalScore)
 
-  // Find missing critical documents
+  // Find missing documents for all categories
   const missingCritical = requirements.critical.filter(
+    req => !documentTypes.has(req.documentType)
+  )
+  const missingRecommended = requirements.recommended.filter(
+    req => !documentTypes.has(req.documentType)
+  )
+  const missingOptional = requirements.optional.filter(
     req => !documentTypes.has(req.documentType)
   )
 
@@ -344,6 +354,8 @@ export function calculateContactCompliance(
       total: requirements.optional.length,
     },
     missingCritical,
+    missingRecommended,
+    missingOptional,
   }
 }
 

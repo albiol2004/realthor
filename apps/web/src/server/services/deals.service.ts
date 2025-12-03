@@ -162,13 +162,13 @@ export class DealsService {
         critical: { completed: 0, total: 0 },
         legallyRecommended: { completed: 0, total: 0 },
         advised: { completed: 0, total: 0 },
-        missingCritical: [],
+        missingByContact: [],
         requirements: getRequiredDocuments(deal.dealType),
       }
     }
 
-    // Calculate compliance for each contact
-    const contactCompliances = await Promise.all(
+    // Calculate compliance for each contact WITH contact details
+    const contactCompliancesWithDetails = await Promise.all(
       contactIds.map(async (contactId) => {
         // Get contact data
         const contact = await contactsRepository.findById(userId, contactId)
@@ -178,20 +178,38 @@ export class DealsService {
         const documents = await documentsRepository.listByEntity(userId, 'contact', contactId)
 
         // Calculate compliance for this contact
-        return calculateContactCompliance(contact.role, documents)
+        const compliance = calculateContactCompliance(contact.role, documents)
+
+        return {
+          contact: {
+            id: contact.id,
+            name: `${contact.firstName} ${contact.lastName}`,
+            role: contact.role,
+          },
+          compliance,
+        }
       })
     )
 
     // Filter out null values (contacts that couldn't be found)
-    const validCompliances = contactCompliances.filter(c => c !== null) as Array<{
-      score: number
-      critical: { completed: number; total: number }
-      recommended: { completed: number; total: number }
-      optional: { completed: number; total: number }
-      missingCritical: any[]
+    const validContactCompliances = contactCompliancesWithDetails.filter(c => c !== null) as Array<{
+      contact: {
+        id: string
+        name: string
+        role: string | undefined
+      }
+      compliance: {
+        score: number
+        critical: { completed: number; total: number }
+        recommended: { completed: number; total: number }
+        optional: { completed: number; total: number }
+        missingCritical: any[]
+        missingRecommended: any[]
+        missingOptional: any[]
+      }
     }>
 
-    if (validCompliances.length === 0) {
+    if (validContactCompliances.length === 0) {
       // No valid contacts - return 0 compliance
       return {
         dealId: deal.id,
@@ -201,35 +219,43 @@ export class DealsService {
         critical: { completed: 0, total: 0 },
         legallyRecommended: { completed: 0, total: 0 },
         advised: { completed: 0, total: 0 },
-        missingCritical: [],
+        missingByContact: [],
         requirements: getRequiredDocuments(deal.dealType),
       }
     }
 
     // Calculate average compliance score
     const averageScore = Math.round(
-      validCompliances.reduce((sum, c) => sum + c.score, 0) / validCompliances.length
+      validContactCompliances.reduce((sum, c) => sum + c.compliance.score, 0) / validContactCompliances.length
     )
 
     // Aggregate critical, recommended, advised counts
     const aggregatedCritical = {
-      completed: validCompliances.reduce((sum, c) => sum + c.critical.completed, 0),
-      total: validCompliances.reduce((sum, c) => sum + c.critical.total, 0),
+      completed: validContactCompliances.reduce((sum, c) => sum + c.compliance.critical.completed, 0),
+      total: validContactCompliances.reduce((sum, c) => sum + c.compliance.critical.total, 0),
     }
     const aggregatedRecommended = {
-      completed: validCompliances.reduce((sum, c) => sum + c.recommended.completed, 0),
-      total: validCompliances.reduce((sum, c) => sum + c.recommended.total, 0),
+      completed: validContactCompliances.reduce((sum, c) => sum + c.compliance.recommended.completed, 0),
+      total: validContactCompliances.reduce((sum, c) => sum + c.compliance.recommended.total, 0),
     }
     const aggregatedAdvised = {
-      completed: validCompliances.reduce((sum, c) => sum + c.optional.completed, 0),
-      total: validCompliances.reduce((sum, c) => sum + c.optional.total, 0),
+      completed: validContactCompliances.reduce((sum, c) => sum + c.compliance.optional.completed, 0),
+      total: validContactCompliances.reduce((sum, c) => sum + c.compliance.optional.total, 0),
     }
 
-    // Combine all missing critical documents (unique)
-    const allMissingCritical = validCompliances.flatMap(c => c.missingCritical)
-    const uniqueMissingCritical = Array.from(
-      new Map(allMissingCritical.map(doc => [doc.documentType, doc])).values()
-    )
+    // Build detailed missing documents by contact
+    const missingByContact = validContactCompliances
+      .filter(c =>
+        c.compliance.missingCritical.length > 0 ||
+        c.compliance.missingRecommended.length > 0 ||
+        c.compliance.missingOptional.length > 0
+      )
+      .map(c => ({
+        contact: c.contact,
+        missingCritical: c.compliance.missingCritical,
+        missingRecommended: c.compliance.missingRecommended,
+        missingOptional: c.compliance.missingOptional,
+      }))
 
     return {
       dealId: deal.id,
@@ -239,7 +265,7 @@ export class DealsService {
       critical: aggregatedCritical,
       legallyRecommended: aggregatedRecommended,
       advised: aggregatedAdvised,
-      missingCritical: uniqueMissingCritical,
+      missingByContact,
       requirements: getRequiredDocuments(deal.dealType),
     }
   }

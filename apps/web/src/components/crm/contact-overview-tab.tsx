@@ -292,20 +292,80 @@ export function ContactOverviewTab({ contact, onTabChange }: ContactOverviewTabP
                     </div>
                   )}
 
-                  {/* Missing Critical Documents */}
-                  {complianceDetails.missingCritical.length > 0 && (
-                    <div className="pt-2 border-t">
-                      <div className="text-sm font-medium text-red-600 mb-1">
-                        Missing Critical Documents:
+                  {/* Missing Documents - All Categories */}
+                  {(complianceDetails.missingCritical.length > 0 ||
+                    complianceDetails.missingRecommended.length > 0 ||
+                    complianceDetails.missingOptional.length > 0) && (
+                    <div className="pt-3 border-t space-y-3">
+                      <div className="text-sm font-semibold text-red-600">
+                        Missing Documents
                       </div>
-                      <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
-                        {complianceDetails.missingCritical.slice(0, 3).map((doc: any, i: number) => (
-                          <li key={i}>{doc.name}</li>
-                        ))}
-                        {complianceDetails.missingCritical.length > 3 && (
-                          <li className="text-gray-500">+{complianceDetails.missingCritical.length - 3} more</li>
-                        )}
-                      </ul>
+
+                      {/* Critical Documents */}
+                      {complianceDetails.missingCritical.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-red-600 mb-1">
+                            Critical (Required):
+                          </div>
+                          <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                            {complianceDetails.missingCritical.map((doc: any, i: number) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <span className="text-red-500 mt-0.5">•</span>
+                                <div>
+                                  <span className="font-medium">{doc.name}</span>
+                                  {doc.description && (
+                                    <span className="text-muted-foreground"> - {doc.description}</span>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Recommended Documents */}
+                      {complianceDetails.missingRecommended.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-yellow-600 mb-1">
+                            Recommended (Important):
+                          </div>
+                          <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                            {complianceDetails.missingRecommended.map((doc: any, i: number) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <span className="text-yellow-500 mt-0.5">•</span>
+                                <div>
+                                  <span className="font-medium">{doc.name}</span>
+                                  {doc.description && (
+                                    <span className="text-muted-foreground"> - {doc.description}</span>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Optional Documents */}
+                      {complianceDetails.missingOptional.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-blue-600 mb-1">
+                            Advised (Nice to Have):
+                          </div>
+                          <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                            {complianceDetails.missingOptional.map((doc: any, i: number) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <span className="text-blue-500 mt-0.5">•</span>
+                                <div>
+                                  <span className="font-medium">{doc.name}</span>
+                                  {doc.description && (
+                                    <span className="text-muted-foreground"> - {doc.description}</span>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
 

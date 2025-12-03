@@ -556,16 +556,92 @@ export function DealDetail({ deal, onClose, onUpdate }: DealDetailProps) {
                   </div>
                 </div>
 
-                {compliance.missingCritical.length > 0 && (
-                  <div className="pt-2 border-t">
-                    <div className="text-sm font-medium text-red-600 mb-1">
-                      Missing Critical Documents:
+                {compliance.missingByContact && compliance.missingByContact.length > 0 && (
+                  <div className="pt-3 border-t space-y-3">
+                    <div className="text-sm font-semibold text-red-600">
+                      Missing Documents by Contact
                     </div>
-                    <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
-                      {compliance.missingCritical.map((doc, i) => (
-                        <li key={i}>{doc.name}</li>
-                      ))}
-                    </ul>
+                    {compliance.missingByContact.map((contactMissing: any, idx: number) => (
+                      <div key={idx} className="space-y-2 p-3 bg-muted/50 rounded-md">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-sm">
+                            {contactMissing.contact.name}
+                          </span>
+                          {contactMissing.contact.role && (
+                            <Badge variant="outline" className="text-xs">
+                              {contactMissing.contact.role}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Critical Documents */}
+                        {contactMissing.missingCritical && contactMissing.missingCritical.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold text-red-600 mb-1">
+                              Critical (Required):
+                            </div>
+                            <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                              {contactMissing.missingCritical.map((doc: any, i: number) => (
+                                <li key={i} className="flex items-start gap-1">
+                                  <span className="text-red-500 mt-0.5">•</span>
+                                  <div>
+                                    <span className="font-medium">{doc.name}</span>
+                                    {doc.description && (
+                                      <span className="text-muted-foreground"> - {doc.description}</span>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Recommended Documents */}
+                        {contactMissing.missingRecommended && contactMissing.missingRecommended.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold text-yellow-600 mb-1">
+                              Recommended (Important):
+                            </div>
+                            <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                              {contactMissing.missingRecommended.map((doc: any, i: number) => (
+                                <li key={i} className="flex items-start gap-1">
+                                  <span className="text-yellow-500 mt-0.5">•</span>
+                                  <div>
+                                    <span className="font-medium">{doc.name}</span>
+                                    {doc.description && (
+                                      <span className="text-muted-foreground"> - {doc.description}</span>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Optional Documents */}
+                        {contactMissing.missingOptional && contactMissing.missingOptional.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold text-blue-600 mb-1">
+                              Advised (Nice to Have):
+                            </div>
+                            <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                              {contactMissing.missingOptional.map((doc: any, i: number) => (
+                                <li key={i} className="flex items-start gap-1">
+                                  <span className="text-blue-500 mt-0.5">•</span>
+                                  <div>
+                                    <span className="font-medium">{doc.name}</span>
+                                    {doc.description && (
+                                      <span className="text-muted-foreground"> - {doc.description}</span>
+                                    )}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

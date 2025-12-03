@@ -7,3 +7,5 @@
 7. Fix Dashboard and Settings layout, its too streched
 8. Text editor built-in. Client-side processing, server side backup/caching
 9. Define collaboration between agents, maybe Documents/contacts/properties with shared access, maybe tasks assigned to different agents.
+10. Easy onboarding, Excel/CSV contact extraction with AI.
+12. Region based compliance.

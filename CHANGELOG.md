@@ -5,6 +5,260 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2025-12-02
+
+### 🐛 Fixed - Critical Document Processing & Contact Matching Bugs
+
+#### Bug 1: AI Labeling Status Not Showing During Automatic Processing
+
+**Problem:** After OCR completion, the frontend showed "Processing" status instead of the purple "AI Labeling" badge. The AI labeling status indicator only appeared when users manually clicked "Label with AI", not when it happened automatically after OCR.
+
+**Root Cause:** The `isAILabelingInProgress` state was only set when users manually triggered AI labeling. When the OCR webhook automatically queued AI labeling, the component never detected it.
+
+**Solution:** Added automatic detection in `document-detail.tsx`:
+```typescript
+// Automatically detect when AI labeling is in progress
+const isAILabelingActive = document.ocrStatus === "completed" && !document.aiProcessedAt
+
+if (isAILabelingActive && !isAILabelingInProgress) {
+  setIsAILabelingInProgress(true)
+  setAiLabelingStartTime(Date.now())
+  console.log("🔍 Detected AI labeling in progress, starting polling...")
+}
+```
+
+**Files Changed:**
+- `apps/web/src/components/documents/document-detail.tsx` (lines 117-134)
+
+**Result:**
+- ✅ AI Labeling badge appears automatically after OCR completes
+- ✅ Frontend polls every 3 seconds to track progress
+- ✅ Console logs show detection: "🔍 Detected AI labeling in progress, starting polling..."
+
+---
+
+#### Bug 2: Contact Matching Fails for IDs/Passports with Partial Names
+
+**Problem:** AI contact matching worked perfectly for documents with full addresses (insurance policies, contracts) but consistently failed for ID documents (DNI, NIE, Passport), even when the person's name was in the contacts database.
+
+**Root Cause (Multi-layered):**
+1. **AI extraction wasn't extracting critical ID fields:** The system asked AI to extract names and addresses, but NOT `date_of_birth` or `place_of_birth` - the strongest identifiers in ID documents
+2. **Context never passed to matcher:** Even if dates were extracted, they were never included in the `document_context` passed to the contact matching AI
+3. **Matching prompt didn't prioritize dates:** The AI prompt mentioned using dates but never actually received them, so it couldn't differentiate between two contacts with the same name
+4. **Insurance policies worked because:** They have full street addresses, which provided enough context to differentiate contacts by location
+
+**Solution (4-Step Fix):**
+
+**Step 1: Updated AI Extraction Prompt** (`vps-ocr-service/app/document_categories.py`)
+```python
+**EXTRACTION RULES:**
+4. **extracted_date_of_birth**: For ID documents (dni_nie_passport), extract the person's date of birth in YYYY-MM-DD format
+5. **extracted_place_of_birth**: For ID documents (dni_nie_passport), extract the person's place of birth (city/country)
+
+**CRITICAL RULES:**
+- **FOR ID DOCUMENTS (dni_nie_passport): ALWAYS extract date_of_birth and place_of_birth if visible** - these are CRITICAL for matching to contacts
+- Look for: "Fecha de nacimiento", "Date of birth", "Lugar de nacimiento", "Place of birth", "Born in"
+```
+
+**Step 2: Updated AI Labeling Worker** (`vps-ocr-service/app/ai_labeling_worker.py`)
+```python
+metadata = {
+    "category": data.get("category"),
+    "extracted_names": data.get("extracted_names", []),
+    "extracted_addresses": data.get("extracted_addresses", []),
+    "extracted_date_of_birth": data.get("extracted_date_of_birth"),  # NEW
+    "extracted_place_of_birth": data.get("extracted_place_of_birth"),  # NEW
+    # ... rest of fields
+}
+```
+
+**Step 3: Pass Dates to Contact Matcher** (`vps-ocr-service/app/ai_labeling_poller.py`)
+```python
+extracted_date_of_birth = metadata.get("extracted_date_of_birth")
+extracted_place_of_birth = metadata.get("extracted_place_of_birth")
+
+document_context = {
+    "extracted_addresses": extracted_addresses,
+    "extracted_date_of_birth": extracted_date_of_birth,  # CRITICAL for ID matching
+    "extracted_place_of_birth": extracted_place_of_birth,  # CRITICAL for ID matching
+}
+```
+
+**Step 4: Enhanced Matching Prompt** (`vps-ocr-service/app/contact_matching_worker.py`)
+```python
+# Add document dates to context
+if document_context.get("extracted_date_of_birth"):
+    context_parts.append(f"**🎂 Date of birth shown in document:** {date_of_birth}")
+if document_context.get("extracted_place_of_birth"):
+    context_parts.append(f"**🌍 Place of birth shown in document:** {place_of_birth}")
+
+# Updated matching priority:
+**MATCHING PRIORITY (highest to lowest):**
+- 🥇 **FIRST PRIORITY: Date of birth + Place of birth** (0.95-0.99 confidence)
+  * If BOTH match → DEFINITIVE match (0.99) - this is almost certainly the same person
+- 🥈 **SECOND PRIORITY: Name + Location context** (0.75-0.85 confidence)
+- 🥉 **THIRD PRIORITY: Name + Other clues** (email, company, etc.)
+```
+
+**Files Changed:**
+- `vps-ocr-service/app/document_categories.py` (system prompt)
+- `vps-ocr-service/app/ai_labeling_worker.py` (_parse_response method)
+- `vps-ocr-service/app/ai_labeling_poller.py` (_match_entities method)
+- `vps-ocr-service/app/contact_matching_worker.py` (_build_matching_prompt method)
+
+**VPS Logs Now Show:**
+```
+📝 Extracted names: John Doe
+🎂 Extracted date of birth: 1990-05-15
+🌍 Extracted place of birth: Madrid, Spain
+✅ Found 2 contact candidate(s) for 'John Doe'
+✅ Matched 'John Doe' → Contact yyy (confidence: 0.99)
+🔗 Linked contact yyy to document
+```
+
+**Result:**
+- ✅ IDs/Passports now extract date_of_birth and place_of_birth
+- ✅ When multiple contacts have same name, AI matches the one with correct date of birth
+- ✅ Confidence scores reach 0.99 for date+place matches (near-perfect)
+- ✅ Documents automatically link to correct contacts
+
+---
+
+#### Issue 1: Pending State Doesn't Poll for OCR Updates
+
+**Problem:** After uploading a document, the status badge showed "Pending" but didn't automatically update when OCR started processing. Users had to manually refresh to see status changes from Pending → Processing → Completed.
+
+**Solution:** Extended polling to include pending and processing OCR states.
+
+**Changes in `document-detail.tsx`:**
+```typescript
+// Before: Only polled during AI labeling
+enabled: isAILabelingInProgress
+
+// After: Polls during OCR AND AI labeling
+const isOCRInProgress = document.ocrStatus === "pending" || document.ocrStatus === "processing"
+const shouldPoll = isOCRInProgress || isAILabelingInProgress
+
+enabled: shouldPoll  // Polls when OCR is pending/processing OR AI is labeling
+```
+
+**Also Added:**
+- Detection of OCR status changes: `if (polledDocument.ocrStatus !== document.ocrStatus)`
+- Console logging: `📄 OCR status changed: pending → processing`
+- Automatic parent component updates via `onUpdate(polledDocument)`
+
+**Files Changed:**
+- `apps/web/src/components/documents/document-detail.tsx` (lines 67-113)
+
+**Result:**
+- ✅ Status updates automatically every 3 seconds from upload to completion
+- ✅ No manual refresh needed to see: Pending → Processing → AI Labeling → Completed
+- ✅ Smooth UX with real-time status tracking
+
+---
+
+#### Issue 2: AI Labeling Completes Before Contact Matching
+
+**Problem:** The document status showed "Completed" but linked contacts weren't visible yet. The `ai_processed_at` timestamp was set immediately after AI extraction, but BEFORE contact matching finished. Users had to refresh to see the linked contacts.
+
+**Root Cause:** The database update sequence was:
+1. AI extraction → Save metadata ✅
+2. **Set `ai_processed_at = NOW()`** ← TOO EARLY!
+3. Contact matching → Link contacts ✅
+
+Frontend saw `aiProcessedAt` and stopped polling, but contacts were still being processed.
+
+**Solution:** Moved `ai_processed_at` to AFTER contact matching completes.
+
+**Changes:**
+
+**1. Removed Premature Timestamp** (`vps-ocr-service/app/database.py`)
+```python
+# BEFORE:
+# Always update ai_processed_at
+update_fields.append("ai_processed_at = NOW()")
+
+# AFTER:
+# ✨ DO NOT SET ai_processed_at HERE
+# It will be set AFTER contact matching completes
+```
+
+**2. Added New Method** (`vps-ocr-service/app/database.py`)
+```python
+@classmethod
+async def mark_ai_processing_complete(cls, document_id: str):
+    """
+    Mark AI processing as complete (sets ai_processed_at timestamp)
+
+    Called AFTER contact matching completes, so frontend knows
+    ALL AI processing (including contact linking) is done.
+    """
+    await conn.execute(
+        "UPDATE documents SET ai_processed_at = NOW() WHERE id = $1",
+        document_id,
+    )
+```
+
+**3. Updated Processing Flow** (`vps-ocr-service/app/ai_labeling_poller.py`)
+```python
+# Step 1: AI labeling
+metadata = await self.ai_worker.label_document(...)
+
+# Step 2: Save AI metadata (WITHOUT ai_processed_at)
+await Database.save_ai_labeling_result(job.document_id, metadata)
+
+# Step 3: Match contacts/properties
+await self._match_entities(job.document_id, job.user_id, metadata)
+
+# Step 4: Mark AI processing complete (AFTER contact matching!)
+await Database.mark_ai_processing_complete(job.document_id)
+
+# Step 5: Update queue status
+await Database.update_ai_labeling_job_status(...)
+```
+
+**Files Changed:**
+- `vps-ocr-service/app/database.py` (save_ai_labeling_result, mark_ai_processing_complete)
+- `vps-ocr-service/app/ai_labeling_poller.py` (_process_job method)
+
+**VPS Logs Now Show:**
+```
+[1/4] Running AI labeling
+[2/4] Saving AI labels to database
+[3/4] Matching contacts/properties
+🔗 Linked contact yyy to document
+[4/4] Marking AI processing complete  ← NEW STEP!
+✅ Marked AI processing complete for document xxx
+```
+
+**Result:**
+- ✅ `ai_processed_at` only set after contacts are linked
+- ✅ Frontend receives complete data (metadata + linked contacts) in one update
+- ✅ No refresh needed - contacts appear immediately when "Completed" status shows
+- ✅ Perfect UX timing
+
+---
+
+### 📊 Overall Impact
+
+**Before These Fixes:**
+- ❌ Had to manually refresh to see OCR status updates
+- ❌ AI Labeling status only showed for manual triggers
+- ❌ ID/Passport documents never auto-linked to contacts
+- ❌ Saw "Completed" but had to refresh to see linked contacts
+
+**After These Fixes:**
+- ✅ Real-time status updates every 3 seconds (Pending → Processing → AI Labeling → Completed)
+- ✅ AI Labeling badge appears automatically after OCR
+- ✅ ID/Passport documents extract date_of_birth and place_of_birth
+- ✅ Contact matching uses date_of_birth as primary identifier (0.99 confidence)
+- ✅ "Completed" means EVERYTHING is done (AI + contact linking)
+- ✅ Linked contacts appear immediately, no refresh needed
+
+**Perfect document processing flow! 🎉**
+
+---
+
 ## [0.15.0] - 2025-12-02
 
 ### 🚀 Performance - Discord-Like Aggressive Caching

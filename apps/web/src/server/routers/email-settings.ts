@@ -120,9 +120,16 @@ export const emailSettingsRouter = router({
         .input(
             z.object({
                 accountId: z.string(),
-                to: z.string().email(),
+                to: z.union([z.string().email(), z.array(z.string().email())]),
+                cc: z.array(z.string().email()).optional(),
+                bcc: z.array(z.string().email()).optional(),
                 subject: z.string(),
                 body: z.string(),
+                attachments: z.array(z.object({
+                    filename: z.string(),
+                    content: z.string(), // Base64 encoded
+                    contentType: z.string(),
+                })).optional(),
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -157,12 +164,26 @@ export const emailSettingsRouter = router({
                 },
             });
 
+            // Normalize recipients
+            const toEmails = Array.isArray(input.to) ? input.to : [input.to];
+
+            // Prepare attachments for nodemailer
+            const nodemailerAttachments = input.attachments?.map(att => ({
+                filename: att.filename,
+                content: att.content,
+                encoding: 'base64',
+                contentType: att.contentType,
+            }));
+
             // Send email
             await transporter.sendMail({
                 from: account.email_address,
-                to: input.to,
+                to: toEmails.join(', '),
+                cc: input.cc?.join(', '),
+                bcc: input.bcc?.join(', '),
                 subject: input.subject,
                 html: input.body,
+                attachments: nodemailerAttachments,
             });
 
             // Store sent email in database
@@ -170,7 +191,7 @@ export const emailSettingsRouter = router({
                 user_id: ctx.user.id,
                 account_id: account.id,
                 from_email: account.email_address,
-                to_email: [input.to],
+                to_email: toEmails,
                 subject: input.subject,
                 body: input.body,
                 direction: 'outbound',

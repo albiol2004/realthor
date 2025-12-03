@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { Paperclip, Reply, ReplyAll, Forward, Mail, Send, Circle } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { cn } from "@/lib/utils";
+import { EmailComposer } from "./email-composer";
 
 interface EmailMessageProps {
     email: {
@@ -27,6 +28,7 @@ interface EmailMessageProps {
 
 export function EmailMessage({ email }: EmailMessageProps) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [composeMode, setComposeMode] = useState<'reply' | 'replyAll' | 'forward' | null>(null);
     const utils = trpc.useUtils();
 
     const initials = email.fromEmail ? email.fromEmail.substring(0, 2).toUpperCase() : "??";
@@ -47,6 +49,50 @@ export function EmailMessage({ email }: EmailMessageProps) {
             markAsReadMutation.mutate({ emailId: email.id });
         }
     };
+
+    // Reply/Forward handlers
+    const handleReply = () => {
+        setComposeMode('reply');
+    };
+
+    const handleReplyAll = () => {
+        setComposeMode('replyAll');
+    };
+
+    const handleForward = () => {
+        setComposeMode('forward');
+    };
+
+    // Prepare compose data based on mode
+    const getComposeData = () => {
+        const originalBody = email.body || "";
+        const quotedBody = `\n\n------- Original Message -------\nFrom: ${email.fromEmail}\nDate: ${email.sentAt ? format(new Date(email.sentAt), "PPp") : "Unknown"}\nSubject: ${email.subject || "(No Subject)"}\n\n${originalBody}`;
+
+        switch (composeMode) {
+            case 'reply':
+                return {
+                    to: email.fromEmail || "",
+                    subject: email.subject?.startsWith('Re: ') ? email.subject : `Re: ${email.subject || "(No Subject)"}`,
+                    body: quotedBody,
+                };
+            case 'replyAll':
+                return {
+                    to: email.fromEmail || "",
+                    subject: email.subject?.startsWith('Re: ') ? email.subject : `Re: ${email.subject || "(No Subject)"}`,
+                    body: quotedBody,
+                };
+            case 'forward':
+                return {
+                    to: "", // Empty for forward - user can search any contact
+                    subject: email.subject?.startsWith('Fwd: ') ? email.subject : `Fwd: ${email.subject || "(No Subject)"}`,
+                    body: quotedBody,
+                };
+            default:
+                return { to: "", subject: "", body: "" };
+        }
+    };
+
+    const composeData = getComposeData();
 
     // Render email body (handles both plain text and HTML)
     const renderEmailBody = (body: string | null) => {
@@ -186,15 +232,36 @@ export function EmailMessage({ email }: EmailMessageProps) {
 
                     {/* Action Buttons */}
                     <div className="flex gap-2 pt-4 border-t">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={handleReply}>
                             <Reply className="mr-2 h-4 w-4" /> Reply
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={handleReplyAll}>
                             <ReplyAll className="mr-2 h-4 w-4" /> Reply All
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={handleForward}>
                             <Forward className="mr-2 h-4 w-4" /> Forward
                         </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Compose Dialog */}
+            <Dialog open={composeMode !== null} onOpenChange={(open) => !open && setComposeMode(null)}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {composeMode === 'reply' && 'Reply to Email'}
+                            {composeMode === 'replyAll' && 'Reply All'}
+                            {composeMode === 'forward' && 'Forward Email'}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="overflow-y-auto">
+                        <EmailComposer
+                            defaultTo={composeData.to}
+                            defaultSubject={composeData.subject}
+                            defaultBody={composeData.body}
+                            onClose={() => setComposeMode(null)}
+                        />
                     </div>
                 </DialogContent>
             </Dialog>

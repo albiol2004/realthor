@@ -254,7 +254,10 @@ export default function CRMPage() {
                 <Button
                   key={category}
                   variant={isSelected ? 'default' : 'ghost'}
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => {
+                    setSelectedCategory(category)
+                    setSelectedContactId(null) // Close any open contact when switching categories
+                  }}
                   className={cn(
                     'gap-2 whitespace-nowrap',
                     isSelected && 'bg-black dark:bg-white text-white dark:text-black'

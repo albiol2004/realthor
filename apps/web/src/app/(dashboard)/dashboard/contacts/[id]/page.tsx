@@ -77,7 +77,7 @@ export default function ContactDetailPage() {
                 </TabsContent>
 
                 <TabsContent value="email" className="space-y-4">
-                    <EmailComposer contactEmails={contactEmails} />
+                    <EmailComposer defaultTo={contact.email || ""} />
 
                     <Card>
                         <CardHeader>

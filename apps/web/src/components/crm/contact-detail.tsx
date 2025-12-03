@@ -364,17 +364,9 @@ export function ContactDetail({ contact, onEdit, onDelete, onClose, isDeleting }
               {showComposer && contact.email && (
                 <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
                   <EmailComposer
-                    contactEmails={[contact.email]}
                     defaultTo={contact.email}
+                    onClose={() => setShowComposer(false)}
                   />
-                  <Button
-                    onClick={() => setShowComposer(false)}
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2"
-                  >
-                    Cancel
-                  </Button>
                 </div>
               )}
 

@@ -1,4 +1,4 @@
-"""Webhook notifier - Send results back to Kairo"""
+"""Webhook notifier - Send results back to Realthor"""
 
 import aiohttp
 from typing import Optional
@@ -11,7 +11,7 @@ class WebhookNotifier:
     """
     Webhook Notifier
 
-    Sends OCR results back to Kairo main application
+    Sends OCR results back to Realthor main application
     """
 
     def __init__(self):
@@ -30,7 +30,7 @@ class WebhookNotifier:
         self, document_id: str, queue_id: str, ocr_text: str
     ) -> bool:
         """
-        Notify Kairo that OCR processing completed successfully
+        Notify Realthor that OCR processing completed successfully
 
         Args:
             document_id: Document UUID
@@ -58,7 +58,7 @@ class WebhookNotifier:
         self, document_id: str, queue_id: str, error_message: str
     ) -> bool:
         """
-        Notify Kairo that OCR processing failed
+        Notify Realthor that OCR processing failed
 
         Args:
             document_id: Document UUID

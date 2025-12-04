@@ -64,7 +64,7 @@ export default function SubscribeSuccessPage() {
               </div>
             </div>
             <CardTitle className="text-3xl font-bold text-black dark:text-white">
-              Welcome to Kairo!
+              Welcome to Realthor!
             </CardTitle>
             <CardDescription className="text-lg text-gray-600 dark:text-gray-400 mt-2">
               Your subscription is now active

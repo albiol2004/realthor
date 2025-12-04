@@ -82,7 +82,7 @@ export default function VerifyEmailPage() {
       <div className="w-full max-w-md space-y-8">
         {/* Logo */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-black dark:text-white">Kairo</h1>
+          <h1 className="text-3xl font-bold text-black dark:text-white">Realthor</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Real Estate CRM
           </p>
@@ -142,7 +142,7 @@ export default function VerifyEmailPage() {
                   Next steps:
                 </p>
                 <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
-                  <li>Open the email from Kairo</li>
+                  <li>Open the email from Realthor</li>
                   <li>Click the verification link</li>
                   <li>You'll be automatically redirected to your dashboard</li>
                 </ol>
@@ -180,7 +180,7 @@ export default function VerifyEmailPage() {
 
         {/* Additional Help */}
         <div className="text-center text-xs text-gray-500 dark:text-gray-500">
-          <p>Having trouble? Contact support@kairo.com</p>
+          <p>Having trouble? Contact support@realthor.app</p>
         </div>
       </div>
     </div>

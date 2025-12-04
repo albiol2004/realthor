@@ -31,10 +31,10 @@ export default function ContactPage() {
               Send us an email and we'll get back to you within 24 hours.
             </p>
             <a
-              href="mailto:support@kairo.app"
+              href="mailto:support@realthor.app"
               className="text-purple-600 dark:text-purple-400 hover:underline"
             >
-              support@kairo.app
+              support@realthor.app
             </a>
           </CardContent>
         </Card>

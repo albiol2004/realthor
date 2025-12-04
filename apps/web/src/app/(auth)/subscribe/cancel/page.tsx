@@ -62,10 +62,10 @@ export default function SubscribeCancelPage() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     If you experienced any issues during checkout, please contact us at{' '}
                     <a
-                      href="mailto:support@kairo.app"
+                      href="mailto:support@realthor.app"
                       className="text-purple-600 dark:text-purple-400 hover:underline"
                     >
-                      support@kairo.app
+                      support@realthor.app
                     </a>
                   </p>
                 </div>

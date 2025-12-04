@@ -1,5 +1,5 @@
 """
-Kairo VPS OCR Service
+Realthor VPS OCR Service
 
 FastAPI application for document OCR processing with embeddings generation
 """
@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
     global job_poller, ai_labeling_poller, contact_import_poller
 
     logger.info("=" * 60)
-    logger.info(f"🚀 Starting Kairo VPS OCR + AI Service v{__version__}")
+    logger.info(f"🚀 Starting Realthor VPS OCR + AI Service v{__version__}")
     logger.info(f"Instance ID: {settings.vps_instance_id}")
     logger.info(f"OCR Language: {settings.ocr_language}")
     logger.info(f"GPU Enabled: {settings.ocr_use_gpu}")
@@ -153,8 +153,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Kairo VPS OCR + AI Labeling Service",
-    description="Document OCR processing and AI-powered labeling for Kairo CRM",
+    title="Realthor VPS OCR + AI Labeling Service",
+    description="Document OCR processing and AI-powered labeling for Realthor CRM",
     version=__version__,
     lifespan=lifespan,
 )
@@ -164,7 +164,7 @@ app = FastAPI(
 async def root():
     """Root endpoint"""
     return {
-        "service": "Kairo VPS OCR + AI Labeling Service",
+        "service": "Realthor VPS OCR + AI Labeling Service",
         "version": __version__,
         "status": "running",
         "instance_id": settings.vps_instance_id,

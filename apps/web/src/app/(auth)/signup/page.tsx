@@ -91,7 +91,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md space-y-8">
         {/* Logo */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-black dark:text-white">Kairo</h1>
+          <h1 className="text-3xl font-bold text-black dark:text-white">Realthor</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Real Estate CRM
           </p>
@@ -105,7 +105,7 @@ export default function SignupPage() {
                 Create Account
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Join Kairo to manage your real estate business
+                Join Realthor to manage your real estate business
               </p>
             </div>
 

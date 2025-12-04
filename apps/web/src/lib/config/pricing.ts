@@ -1,6 +1,6 @@
 /**
  * Stripe Pricing Configuration
- * Centralized pricing plans for Kairo OS subscriptions
+ * Centralized pricing plans for Realthor OS subscriptions
  */
 
 export type PricingTier = 'standard' | 'professional'
@@ -25,7 +25,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   // Standard - Monthly
   {
     tier: 'standard',
-    name: 'Kairo OS Standard',
+    name: 'Realthor OS Standard',
     description: 'Essential tools for real estate professionals',
     billingCycle: 'monthly',
     price: 99,
@@ -42,7 +42,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   // Standard - Quarterly
   {
     tier: 'standard',
-    name: 'Kairo OS Standard',
+    name: 'Realthor OS Standard',
     description: 'Essential tools for real estate professionals',
     billingCycle: 'quarterly',
     price: 270,
@@ -60,7 +60,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   // Standard - Yearly
   {
     tier: 'standard',
-    name: 'Kairo OS Standard',
+    name: 'Realthor OS Standard',
     description: 'Essential tools for real estate professionals',
     billingCycle: 'yearly',
     price: 999.98,
@@ -78,7 +78,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   // Professional - Monthly
   {
     tier: 'professional',
-    name: 'Kairo OS Professional',
+    name: 'Realthor OS Professional',
     description: 'Advanced features for power users',
     billingCycle: 'monthly',
     price: 199,
@@ -99,7 +99,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   // Professional - Quarterly
   {
     tier: 'professional',
-    name: 'Kairo OS Professional',
+    name: 'Realthor OS Professional',
     description: 'Advanced features for power users',
     billingCycle: 'quarterly',
     price: 540,
@@ -121,7 +121,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   // Professional - Yearly
   {
     tier: 'professional',
-    name: 'Kairo OS Professional',
+    name: 'Realthor OS Professional',
     description: 'Advanced features for power users',
     billingCycle: 'yearly',
     price: 1999,

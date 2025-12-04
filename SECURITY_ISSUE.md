@@ -1,4 +1,15 @@
-Summary
+## Status: RESOLVED ✅
+
+**Fixed on:** 2025-12-04
+
+**Updated versions:**
+- Next.js: 16.0.1 → **16.0.7** (patched)
+- React: 19.2.0 → **19.2.1** (patched)
+- React-dom: 19.2.0 → **19.2.1** (patched)
+
+---
+
+## Summary
 
 A critical-severity vulnerability in React Server Components (CVE-2025-55182) affects React 19 and frameworks that use it, including Next.js (CVE-2025-66478). Under certain conditions, specially crafted requests could lead to unintended remote code execution.
 

@@ -5,6 +5,233 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2025-12-04
+
+### 🚀 New Features
+
+#### Email Integration - Unified Messaging System
+
+**Complete email integration with IMAP sync and unified inbox**
+
+The messaging system has been implemented with full email support, bringing all communications into one place.
+
+**Architecture:**
+```
+System Cron (every 1 minute)
+    ↓
+POST /api/cron/sync-emails
+    ↓
+EmailSyncQueueService.processBatch()
+    ↓
+Sync 5 accounts concurrently
+    ↓
+Update database + IMAP flags
+```
+
+**New Components:**
+- `apps/web/src/app/(dashboard)/messages/page.tsx` - Unified messages view
+- `apps/web/src/components/messaging/email/email-composer.tsx` - Rich email composer
+- `apps/web/src/components/messaging/email/email-message.tsx` - Email message display
+- `apps/web/src/components/messaging/email/email-thread-list.tsx` - Thread list view
+- `apps/web/src/components/settings/email-account-form.tsx` - Account configuration
+- `apps/web/src/app/(dashboard)/settings/integrations/email/page.tsx` - Email settings page
+
+**Backend Services:**
+- `apps/web/src/server/services/email-sync.service.ts` - IMAP sync logic
+- `apps/web/src/server/services/email-sync-queue.service.ts` - Staggered polling queue
+- `apps/web/src/server/routers/email-settings.ts` - Email account management API
+- `apps/web/src/server/routers/messaging.ts` - Messaging API endpoints
+- `apps/web/src/app/api/cron/sync-emails/route.ts` - Cron endpoint for sync
+
+**Features:**
+- ✅ IMAP email sync with staggered polling (5-10 accounts/minute)
+- ✅ 15-minute sync interval per account
+- ✅ Read/unread status sync with IMAP flags
+- ✅ Email composer with rich text support
+- ✅ Manual sync button for immediate syncing
+- ✅ Auto-link emails to contacts by email address
+- ✅ Encrypted password storage (`lib/utils/encryption.ts`)
+- ✅ Configurable batch size and sync intervals
+
+**Environment Variables:**
+```bash
+CRON_SECRET=your-random-secret-token-here
+EMAIL_SYNC_BATCH_SIZE=5
+ENCRYPTION_KEY=your-32-character-encryption-key-here
+```
+
+**Database:**
+- `supabase/migrations/20251201_add_email_read_status.sql` - Email read status tracking
+
+---
+
+#### CSV Contact Imports with AI Column Mapping
+
+**Powerful contact import system with AI-powered column detection and duplicate handling**
+
+Import contacts from CSV/Excel files with intelligent column mapping and three import modes.
+
+**Import Modes:**
+- **Safe Mode:** Review every contact before import
+- **Balanced Mode:** Only review duplicates and conflicts
+- **Turbo Mode:** Import all without review (fastest)
+
+**New Pages:**
+- `apps/web/src/app/(dashboard)/crm/imports/page.tsx` - Import jobs list
+- `apps/web/src/app/(dashboard)/crm/imports/[id]/page.tsx` - Import job details
+- `apps/web/src/app/(dashboard)/crm/imports/[id]/review/page.tsx` - Conflict review interface
+
+**New Components:**
+- `apps/web/src/components/crm/imports/new-import-modal.tsx` - Upload & configure import
+
+**Backend:**
+- `apps/web/src/server/repositories/contact-imports.repository.ts` - Data access layer
+- `apps/web/src/server/routers/contact-imports.ts` - tRPC router for imports
+- `vps-ocr-service/app/contact_import_worker.py` - AI column mapping & processing
+- `vps-ocr-service/app/contact_import_poller.py` - Background job processing
+
+**Database Schema:**
+```sql
+-- New tables (20251204_contact_imports.sql)
+contact_import_jobs       -- Import job tracking
+contact_import_rows       -- Individual rows with mapping/status
+
+-- New enums
+contact_import_status     -- pending, analyzing, pending_review, processing, completed, failed
+contact_import_mode       -- safe, balanced, turbo
+contact_import_row_status -- new, duplicate, conflict, imported, skipped
+contact_import_decision   -- create, update, skip
+```
+
+**Features:**
+- ✅ AI-powered column mapping (auto-detect first_name, email, phone, etc.)
+- ✅ Duplicate detection with match confidence scores
+- ✅ Conflict detection showing field differences
+- ✅ Review interface for resolving conflicts
+- ✅ Field-level overwrite selection during update
+- ✅ Real-time progress tracking with polling
+- ✅ Support for CSV files via Supabase Storage
+- ✅ Comprehensive error handling
+
+**Types:**
+```typescript
+// apps/web/src/types/crm.ts
+type ContactImportStatus = 'pending' | 'analyzing' | 'pending_review' | 'processing' | 'completed' | 'failed'
+type ContactImportMode = 'safe' | 'balanced' | 'turbo'
+type ContactImportRowStatus = 'new' | 'duplicate' | 'conflict' | 'imported' | 'skipped'
+```
+
+---
+
+### 🎨 UI Improvements
+
+#### Enhanced Compliance Display (`components/deals/deal-detail.tsx`)
+- Improved compliance score visualization
+- Better styling and color coding for compliance status
+- More beautiful compliance component layout
+
+#### Landing Page Revamp (`app/page.tsx`)
+- Updated hero section design
+- Improved feature highlights
+- Better call-to-action positioning
+
+#### Responsiveness Fixes
+- Fixed various responsiveness issues across the application
+- Improved mobile/tablet layouts for:
+  - CRM pages
+  - Document pages
+  - Email/messaging interface
+  - Dashboard components
+
+#### Left Sidebar Navigation Update (`components/layout/left-sidebar.tsx`)
+- Added "Messages" navigation item
+- Added "Imports" navigation under CRM section
+
+---
+
+### 🐛 Bug Fixes
+
+#### Email Newline Rendering (`components/messaging/email/email-message.tsx`)
+- **Problem:** Plain text emails with `\n` characters collapsed to a single line
+- **Solution:** Added `renderEmailBody()` function that converts `\n` to `<br>` for plain text emails
+- **Result:** Emails now display properly with correct line breaks
+
+#### AI Labeling Responsiveness
+- Fixed AI labeling status not updating automatically after OCR completion
+- Improved polling for status updates
+- Better detection of AI labeling in progress state
+
+#### JSON Error Handling in VPS Service
+- Fixed JSON parsing errors in AI responses
+- Added more robust error handling for malformed responses
+- Improved retry logic for API calls
+
+#### OCR Responsiveness
+- Fixed status updates not reflecting in real-time
+- Added polling for pending and processing states
+- Improved overall document processing UX
+
+---
+
+### 🔐 Security Advisory
+
+#### React Server Components Vulnerability (CVE-2025-55182)
+
+A critical-severity vulnerability affects React 19 and frameworks using React Server Components, including Next.js (CVE-2025-66478).
+
+**Impact:** Remote code execution under certain conditions with specially crafted requests.
+
+**Affected Versions:**
+- React: 19.0, 19.1.0, 19.1.1, 19.2.0
+- Next.js: ≥14.3.0-canary.77, ≥15 and ≥16
+
+**Fixed In:**
+- React: 19.0.1, 19.1.2, 19.2.1
+- Next.js: 15.0.5, 15.1.9, 15.2.6, 15.3.6, 15.4.8, 15.5.7, 16.0.7
+
+**Recommendation:** Upgrade to patched versions immediately. See `SECURITY_ISSUE.md` for details.
+
+---
+
+### 📦 Dependencies & Configuration
+
+#### New Environment Variables
+```bash
+# Email sync
+CRON_SECRET=...
+EMAIL_SYNC_BATCH_SIZE=5
+ENCRYPTION_KEY=...
+```
+
+#### New Files
+- `EMAIL_SYNC_SETUP.md` - Email sync configuration guide
+- `IMPLEMENTATION_SUMMARY.md` - Optimistic updates documentation
+- `FINAL_IMPLEMENTATION.md` - Implementation details
+- `OPTIMISTIC_UPDATES_PLAN.md` - Performance optimization plan
+- `SECURITY_ISSUE.md` - Security advisory documentation
+
+#### Database Migrations
+- `20251201_add_email_read_status.sql` - Email read status
+- `20251204_contact_imports.sql` - Contact import system
+- `20250203_add_contact_birth_fields.sql` - Contact birth date/place fields
+
+---
+
+### 📊 Files Changed Summary
+
+- **92 files changed**
+- **13,653 insertions**
+- **823 deletions**
+
+Major additions:
+- Email integration system
+- CSV contact import system
+- Enhanced CRM types
+- Optimistic updates throughout
+- Security documentation
+
+---
+
 ## [0.15.1] - 2025-12-02
 
 ### 🐛 Fixed - Critical Document Processing & Contact Matching Bugs

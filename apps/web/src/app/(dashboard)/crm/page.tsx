@@ -15,7 +15,8 @@ import type {
   ContactCategory,
 } from '@/types/crm'
 import { useToast } from '@/hooks/use-toast'
-import { Search, Plus, Users } from 'lucide-react'
+import { Search, Plus, Users, Upload } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { getContactCategoryLabel } from '@/types/crm'
 import { invalidateContactQueries } from '@/lib/trpc/cache-invalidation'
@@ -222,23 +223,33 @@ export default function CRMPage() {
       <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-950">
         {/* Top Bar - Search */}
         <div className="flex-shrink-0 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 px-4 py-4">
-          <div className="flex items-center gap-4">
-            {/* Search Bar */}
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <div className="flex items-center gap-3">
+            {/* Search Bar - Smaller width */}
+            <div className="relative flex-1 max-w-xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search contacts by name, email, phone, or company..."
+                placeholder="Search contacts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-4 h-12 text-base"
+                className="pl-10 pr-4 h-10"
               />
             </div>
 
-            {/* Add Contact Button */}
-            <Button onClick={() => setIsFullCreateOpen(true)} size="lg" className="gap-2">
-              <Plus className="h-5 w-5" />
-              New Contact
-            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Contact Imports Button */}
+              <Button variant="outline" size="default" className="gap-2" asChild>
+                <Link href="/crm/imports">
+                  <Upload className="h-4 w-4" />
+                  Import Contacts
+                </Link>
+              </Button>
+
+              {/* Add Contact Button */}
+              <Button onClick={() => setIsFullCreateOpen(true)} size="default" className="gap-2">
+                <Plus className="h-4 w-4" />
+                New Contact
+              </Button>
+            </div>
           </div>
         </div>
 

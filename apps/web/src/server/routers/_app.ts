@@ -9,6 +9,7 @@ import { dealsRouter } from './deals'
 import { searchRouter } from './search'
 import { messagingRouter } from './messaging'
 import { emailSettingsRouter } from './email-settings'
+import { contactImportsRouter } from './contact-imports'
 
 /**
  * Main tRPC Router
@@ -31,6 +32,7 @@ export const appRouter = router({
   search: searchRouter, // ✅ Semantic document search
   messaging: messagingRouter,
   emailSettings: emailSettingsRouter,
+  contactImports: contactImportsRouter, // ✅ CSV contact import
 })
 
 export type AppRouter = typeof appRouter

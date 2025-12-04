@@ -953,3 +953,166 @@ export function formatFileSize(bytes: number): string {
 
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
+
+// ============================================================================
+// Contact Import Types
+// ============================================================================
+
+export type ContactImportStatus =
+  | 'pending'           // Just created, waiting for processing
+  | 'analyzing'         // Parsing CSV, AI mapping, finding duplicates
+  | 'pending_review'    // Analysis complete, waiting for user review
+  | 'processing'        // Executing the import
+  | 'completed'         // Import finished successfully
+  | 'failed'            // Import failed with error
+
+export type ContactImportMode = 'safe' | 'balanced' | 'turbo'
+
+export type ContactImportRowStatus =
+  | 'new'        // No match found, will create new contact
+  | 'duplicate'  // Exact match found, no conflicts
+  | 'conflict'   // Match found with conflicting data
+  | 'imported'   // Successfully imported/updated
+  | 'skipped'    // User chose to skip
+
+export type ContactImportDecision = 'create' | 'update' | 'skip'
+
+export interface ContactImportJob {
+  id: string
+  userId: string
+  status: ContactImportStatus
+  mode: ContactImportMode
+  fileName: string
+  fileUrl: string
+  fileSizeBytes?: number
+
+  // AI mapping result
+  columnMapping?: Record<string, string>
+  csvHeaders?: string[]
+
+  // Analysis stats
+  totalRows: number
+  newCount: number
+  duplicateCount: number
+  conflictCount: number
+
+  // Final import stats
+  createdCount: number
+  updatedCount: number
+  skippedCount: number
+
+  // Timestamps
+  createdAt: Date
+  analyzedAt?: Date
+  completedAt?: Date
+
+  // Error handling
+  errorMessage?: string
+}
+
+export interface ContactImportConflict {
+  field: string
+  existing: string
+  new: string
+  keep?: 'existing' | 'new'
+}
+
+export interface ContactImportRow {
+  id: string
+  jobId: string
+  rowNumber: number
+  rawData: Record<string, string>
+  mappedData?: Record<string, any>
+  status: ContactImportRowStatus
+  matchedContactId?: string
+  matchedContact?: {
+    id: string
+    firstName: string
+    lastName: string
+    email?: string
+    phone?: string
+  }
+  matchConfidence?: number
+  conflicts?: ContactImportConflict[]
+  decision?: ContactImportDecision
+  overwriteFields?: string[]
+  createdContactId?: string
+  importError?: string
+  createdAt: Date
+}
+
+export interface CreateContactImportInput {
+  mode: ContactImportMode
+  fileName: string
+  fileUrl: string
+  fileSizeBytes?: number
+}
+
+export interface ContactImportReviewInput {
+  rowId: string
+  decision: ContactImportDecision
+  overwriteFields?: string[]
+}
+
+export interface ContactImportBulkReviewInput {
+  jobId: string
+  status: 'new' | 'duplicate' | 'conflict'
+  decision: ContactImportDecision
+  overwriteAll?: boolean  // For duplicates/conflicts: overwrite all fields
+}
+
+// Helper functions for contact imports
+export function getContactImportStatusLabel(status: ContactImportStatus): string {
+  const labels: Record<ContactImportStatus, string> = {
+    pending: 'Pending',
+    analyzing: 'Analyzing',
+    pending_review: 'Pending Review',
+    processing: 'Processing',
+    completed: 'Completed',
+    failed: 'Failed',
+  }
+  return labels[status] || status
+}
+
+export function getContactImportStatusColor(status: ContactImportStatus): string {
+  const colors: Record<ContactImportStatus, string> = {
+    pending: 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-800',
+    analyzing: 'text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
+    pending_review: 'text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900',
+    processing: 'text-purple-700 bg-purple-100 dark:text-purple-300 dark:bg-purple-900',
+    completed: 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900',
+    failed: 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900',
+  }
+  return colors[status] || 'text-gray-700 bg-gray-100'
+}
+
+export function getContactImportModeLabel(mode: ContactImportMode): string {
+  const labels: Record<ContactImportMode, string> = {
+    safe: 'Safe',
+    balanced: 'Balanced',
+    turbo: 'Turbo',
+  }
+  return labels[mode] || mode
+}
+
+export function getContactImportRowStatusLabel(status: ContactImportRowStatus): string {
+  const labels: Record<ContactImportRowStatus, string> = {
+    new: 'New',
+    duplicate: 'Duplicate',
+    conflict: 'Conflict',
+    imported: 'Imported',
+    skipped: 'Skipped',
+  }
+  return labels[status] || status
+}
+
+export function getContactImportRowStatusColor(status: ContactImportRowStatus): string {
+  const colors: Record<ContactImportRowStatus, string> = {
+    new: 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900',
+    duplicate: 'text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900',
+    conflict: 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900',
+    imported: 'text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
+    skipped: 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-800',
+  }
+  return colors[status] || 'text-gray-700 bg-gray-100'
+}

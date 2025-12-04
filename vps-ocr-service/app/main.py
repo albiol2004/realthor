@@ -14,8 +14,10 @@ from app.config import settings
 from app.database import Database
 from app.ocr_worker import OCRWorker
 from app.ai_labeling_worker import AILabelingWorker
+from app.contact_import_worker import ContactImportWorker
 from app.job_poller import JobPoller
 from app.ai_labeling_poller import AILabelingPoller
+from app.contact_import_poller import ContactImportPoller
 from app.models import HealthResponse, QueueStats
 from app import __version__
 
@@ -39,8 +41,10 @@ if settings.log_file:
 # Global instances
 ocr_worker: OCRWorker = None
 ai_labeling_worker: AILabelingWorker = None
+contact_import_worker: ContactImportWorker = None
 job_poller: JobPoller = None
 ai_labeling_poller: AILabelingPoller = None
+contact_import_poller: ContactImportPoller = None
 
 
 @asynccontextmanager
@@ -51,58 +55,76 @@ async def lifespan(app: FastAPI):
     Startup:
     - Load ML models (OCR only)
     - Load AI labeling worker (optional)
+    - Load contact import worker (optional)
     - Connect to database
-    - Start job pollers (OCR + AI labeling)
+    - Start job pollers (OCR + AI labeling + Contact Import)
 
     Shutdown:
     - Stop job pollers
     - Close database connections
     """
-    global ocr_worker, ai_labeling_worker, job_poller, ai_labeling_poller
+    global ocr_worker, ai_labeling_worker, contact_import_worker
+    global job_poller, ai_labeling_poller, contact_import_poller
 
     logger.info("=" * 60)
-    logger.info(f"🚀 Starting Kairo VPS OCR + AI Labeling Service v{__version__}")
+    logger.info(f"🚀 Starting Kairo VPS OCR + AI Service v{__version__}")
     logger.info(f"Instance ID: {settings.vps_instance_id}")
     logger.info(f"OCR Language: {settings.ocr_language}")
     logger.info(f"GPU Enabled: {settings.ocr_use_gpu}")
     logger.info(f"AI Labeling Enabled: {settings.ai_labeling_enabled}")
+    logger.info(f"Contact Import Enabled: {settings.contact_import_enabled}")
     logger.info(f"Webhook Enabled: {settings.webhook_enabled}")
     logger.info("=" * 60)
 
     try:
         # Step 1: Connect to database
-        logger.info("[1/5] Connecting to database...")
+        logger.info("[1/6] Connecting to database...")
         await Database.connect()
 
         # Step 2: Load OCR models
-        logger.info("[2/5] Loading OCR models (PaddleOCR)...")
+        logger.info("[2/6] Loading OCR models (PaddleOCR)...")
         ocr_worker = OCRWorker()
 
         # Step 3: Load AI labeling worker (optional)
         if settings.ai_labeling_enabled and settings.deepseek_api_key:
-            logger.info("[3/5] Loading AI labeling worker (Deepseek)...")
+            logger.info("[3/6] Loading AI labeling worker (Deepseek)...")
             ai_labeling_worker = AILabelingWorker()
         else:
-            logger.warning("[3/5] AI labeling disabled (missing DEEPSEEK_API_KEY)")
+            logger.warning("[3/6] AI labeling disabled (missing DEEPSEEK_API_KEY)")
 
-        # Step 4: Start OCR job poller
-        logger.info("[4/5] Starting OCR job poller...")
+        # Step 4: Load contact import worker (optional)
+        if settings.contact_import_enabled:
+            logger.info("[4/6] Loading contact import worker...")
+            contact_import_worker = ContactImportWorker()
+        else:
+            logger.info("[4/6] Contact import disabled")
+
+        # Step 5: Start OCR job poller
+        logger.info("[5/6] Starting OCR job poller...")
         job_poller = JobPoller(ocr_worker)
         await job_poller.start()
 
-        # Step 5: Start AI labeling job poller (if AI labeling is enabled)
+        # Step 5b: Start AI labeling job poller (if AI labeling is enabled)
         if ai_labeling_worker:
-            logger.info("[5/5] Starting AI labeling job poller...")
+            logger.info("      Starting AI labeling job poller...")
             ai_labeling_poller = AILabelingPoller(ai_labeling_worker)
             await ai_labeling_poller.start()
+
+        # Step 6: Start contact import job poller (if enabled)
+        if contact_import_worker:
+            logger.info("[6/6] Starting contact import job poller...")
+            contact_import_poller = ContactImportPoller(contact_import_worker)
+            await contact_import_poller.start()
         else:
-            logger.info("[5/5] Skipping AI labeling poller (AI labeling disabled)")
+            logger.info("[6/6] Skipping contact import poller (disabled)")
 
         logger.info("=" * 60)
         logger.info("✅ Service is ready!")
-        logger.info(f"📊 OCR polling interval: {settings.poll_interval_seconds}s")
+        logger.info(f"📊 Polling interval: {settings.poll_interval_seconds}s")
         if ai_labeling_worker:
             logger.info(f"🤖 AI labeling active (Deepseek)")
+        if contact_import_worker:
+            logger.info(f"📥 Contact import active")
         logger.info("=" * 60)
 
         yield
@@ -120,6 +142,9 @@ async def lifespan(app: FastAPI):
 
         if ai_labeling_poller:
             await ai_labeling_poller.stop()
+
+        if contact_import_poller:
+            await contact_import_poller.stop()
 
         await Database.disconnect()
 

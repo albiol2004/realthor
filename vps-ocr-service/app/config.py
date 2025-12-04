@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     deepseek_api_key: Optional[str] = None
     ai_labeling_enabled: bool = True  # Enable/disable AI labeling feature
 
+    # Contact Import
+    contact_import_enabled: bool = True  # Enable/disable contact import feature
+    supabase_service_key: Optional[str] = None  # For downloading files from storage
+
     # Queue
     poll_interval_seconds: int = 5
     max_retries: int = 3

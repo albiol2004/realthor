@@ -609,3 +609,479 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to link contact to document: {e}")
             return False
+
+    # ==================== CONTACT IMPORT QUEUE METHODS ====================
+
+    @classmethod
+    async def get_next_import_job(cls, vps_instance_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get next contact import job from queue
+
+        Uses database function with FOR UPDATE SKIP LOCKED
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM get_next_import_job($1)",
+                    vps_instance_id
+                )
+
+                if row:
+                    return dict(row)
+                return None
+
+        except Exception as e:
+            logger.error(f"Failed to get next import job: {e}")
+            return None
+
+    @classmethod
+    async def update_import_job_status(
+        cls,
+        job_id: str,
+        status: str,
+        error_message: Optional[str] = None,
+        stats: Optional[Dict[str, int]] = None
+    ):
+        """Update contact import job status"""
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            import json
+            stats_json = json.dumps(stats) if stats else None
+
+            async with cls._pool.acquire() as conn:
+                await conn.execute(
+                    "SELECT update_import_job_status($1, $2::contact_import_status, $3, $4::jsonb)",
+                    job_id,
+                    status,
+                    error_message,
+                    stats_json
+                )
+
+            logger.info(f"Updated import job {job_id} status to {status}")
+
+        except Exception as e:
+            logger.error(f"Failed to update import job status: {e}")
+            raise
+
+    @classmethod
+    async def save_import_job_mapping(
+        cls,
+        job_id: str,
+        column_mapping: Dict[str, str],
+        csv_headers: List[str]
+    ):
+        """Save AI column mapping result to job"""
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            import json
+
+            async with cls._pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE contact_import_jobs
+                    SET column_mapping = $1::jsonb,
+                        csv_headers = $2
+                    WHERE id = $3
+                    """,
+                    json.dumps(column_mapping),
+                    csv_headers,
+                    job_id
+                )
+
+            logger.info(f"Saved column mapping for job {job_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to save column mapping: {e}")
+            raise
+
+    @classmethod
+    async def save_import_rows(
+        cls,
+        job_id: str,
+        rows: List[Dict[str, Any]]
+    ):
+        """
+        Bulk save analyzed import rows
+
+        Each row should have:
+        - row_number: int
+        - raw_data: dict
+        - mapped_data: dict
+        - status: 'new' | 'duplicate' | 'conflict'
+        - matched_contact_id: Optional[str]
+        - match_confidence: Optional[float]
+        - conflicts: Optional[list]
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        if not rows:
+            return
+
+        try:
+            import json
+
+            async with cls._pool.acquire() as conn:
+                # Use COPY for bulk insert (faster)
+                # But for simplicity, use executemany
+                await conn.executemany(
+                    """
+                    INSERT INTO contact_import_rows (
+                        job_id, row_number, raw_data, mapped_data,
+                        status, matched_contact_id, match_confidence, conflicts
+                    ) VALUES (
+                        $1, $2, $3::jsonb, $4::jsonb,
+                        $5::contact_import_row_status, $6, $7, $8::jsonb
+                    )
+                    """,
+                    [
+                        (
+                            job_id,
+                            row["row_number"],
+                            json.dumps(row["raw_data"]),
+                            json.dumps(row["mapped_data"]) if row.get("mapped_data") else None,
+                            row["status"],
+                            row.get("matched_contact_id"),
+                            row.get("match_confidence"),
+                            json.dumps(row["conflicts"]) if row.get("conflicts") else None
+                        )
+                        for row in rows
+                    ]
+                )
+
+            logger.info(f"Saved {len(rows)} import rows for job {job_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to save import rows: {e}")
+            raise
+
+    @classmethod
+    async def get_import_rows_for_processing(
+        cls,
+        job_id: str,
+        include_statuses: List[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get import rows ready for processing
+
+        Args:
+            job_id: Import job ID
+            include_statuses: Filter by row status (default: all non-skipped)
+
+        Returns:
+            List of rows with their decisions
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                if include_statuses:
+                    rows = await conn.fetch(
+                        """
+                        SELECT
+                            id, row_number, raw_data, mapped_data,
+                            status, matched_contact_id, match_confidence,
+                            conflicts, decision, overwrite_fields
+                        FROM contact_import_rows
+                        WHERE job_id = $1
+                        AND status = ANY($2::contact_import_row_status[])
+                        AND (decision IS NULL OR decision != 'skip')
+                        ORDER BY row_number ASC
+                        """,
+                        job_id,
+                        include_statuses
+                    )
+                else:
+                    rows = await conn.fetch(
+                        """
+                        SELECT
+                            id, row_number, raw_data, mapped_data,
+                            status, matched_contact_id, match_confidence,
+                            conflicts, decision, overwrite_fields
+                        FROM contact_import_rows
+                        WHERE job_id = $1
+                        AND (decision IS NULL OR decision != 'skip')
+                        ORDER BY row_number ASC
+                        """,
+                        job_id
+                    )
+
+                return [dict(row) for row in rows]
+
+        except Exception as e:
+            logger.error(f"Failed to get import rows for processing: {e}")
+            return []
+
+    @classmethod
+    async def update_import_row_result(
+        cls,
+        row_id: str,
+        status: str,
+        created_contact_id: Optional[str] = None,
+        error: Optional[str] = None
+    ):
+        """Update import row after processing"""
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE contact_import_rows
+                    SET status = $1::contact_import_row_status,
+                        created_contact_id = $2,
+                        import_error = $3
+                    WHERE id = $4
+                    """,
+                    status,
+                    created_contact_id,
+                    error,
+                    row_id
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to update import row result: {e}")
+            raise
+
+    @classmethod
+    async def get_user_contacts_for_matching(
+        cls,
+        user_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all user contacts for duplicate matching
+
+        Returns minimal contact info for efficient matching
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT
+                        id, first_name, last_name, email, phone,
+                        company, job_title, address_street, address_city,
+                        address_state, address_zip, address_country,
+                        source, notes, date_of_birth, place_of_birth
+                    FROM contacts
+                    WHERE user_id = $1
+                    ORDER BY created_at DESC
+                    """,
+                    user_id
+                )
+
+                return [dict(row) for row in rows]
+
+        except Exception as e:
+            logger.error(f"Failed to get user contacts for matching: {e}")
+            return []
+
+    @classmethod
+    async def create_contact(
+        cls,
+        user_id: str,
+        contact_data: Dict[str, Any]
+    ) -> Optional[str]:
+        """
+        Create a new contact
+
+        Returns the created contact ID
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        try:
+            async with cls._pool.acquire() as conn:
+                # Build dynamic INSERT based on provided fields
+                fields = ["user_id"]
+                values = [user_id]
+                placeholders = ["$1"]
+
+                contact_fields = [
+                    "first_name", "last_name", "email", "phone",
+                    "company", "job_title", "profile_picture_url",
+                    "address_street", "address_city", "address_state",
+                    "address_zip", "address_country", "status", "source",
+                    "tags", "budget_min", "budget_max", "notes",
+                    "custom_fields", "category", "role",
+                    "date_of_birth", "place_of_birth"
+                ]
+
+                param_num = 2
+                for field in contact_fields:
+                    if field in contact_data and contact_data[field] is not None:
+                        fields.append(field)
+                        value = contact_data[field]
+
+                        # Handle special types
+                        if field == "tags" and isinstance(value, list):
+                            values.append(value)
+                        elif field == "custom_fields" and isinstance(value, dict):
+                            import json
+                            values.append(json.dumps(value))
+                            placeholders.append(f"${param_num}::jsonb")
+                            param_num += 1
+                            continue
+                        elif field == "date_of_birth" and isinstance(value, str):
+                            from datetime import datetime
+                            values.append(datetime.strptime(value, "%Y-%m-%d").date())
+                        elif field in ["budget_min", "budget_max"]:
+                            values.append(float(value) if value else None)
+                        else:
+                            values.append(value)
+
+                        placeholders.append(f"${param_num}")
+                        param_num += 1
+
+                query = f"""
+                    INSERT INTO contacts ({', '.join(fields)})
+                    VALUES ({', '.join(placeholders)})
+                    RETURNING id
+                """
+
+                row = await conn.fetchrow(query, *values)
+                return str(row["id"]) if row else None
+
+        except Exception as e:
+            logger.error(f"Failed to create contact: {e}")
+            raise
+
+    @classmethod
+    async def update_contact(
+        cls,
+        contact_id: str,
+        update_data: Dict[str, Any],
+        only_empty_fields: bool = False,
+        specific_fields: List[str] = None
+    ) -> bool:
+        """
+        Update an existing contact
+
+        Args:
+            contact_id: Contact to update
+            update_data: Fields to update
+            only_empty_fields: If True, only update fields that are currently NULL/empty
+            specific_fields: If provided, only update these specific fields
+
+        Returns:
+            True if updated successfully
+        """
+        if not cls._pool:
+            raise RuntimeError("Database not connected")
+
+        if not update_data:
+            return True
+
+        try:
+            async with cls._pool.acquire() as conn:
+                # Build dynamic UPDATE
+                set_clauses = []
+                values = []
+                param_num = 1
+
+                allowed_fields = [
+                    "first_name", "last_name", "email", "phone",
+                    "company", "job_title", "profile_picture_url",
+                    "address_street", "address_city", "address_state",
+                    "address_zip", "address_country", "source",
+                    "tags", "budget_min", "budget_max", "notes",
+                    "custom_fields", "date_of_birth", "place_of_birth"
+                ]
+
+                for field in allowed_fields:
+                    if field not in update_data or update_data[field] is None:
+                        continue
+
+                    # Skip if not in specific_fields list (when provided)
+                    if specific_fields and field not in specific_fields:
+                        continue
+
+                    value = update_data[field]
+
+                    # Handle special types
+                    if field == "custom_fields" and isinstance(value, dict):
+                        import json
+                        value = json.dumps(value)
+                        type_cast = "::jsonb"
+                    elif field == "date_of_birth" and isinstance(value, str):
+                        from datetime import datetime
+                        value = datetime.strptime(value, "%Y-%m-%d").date()
+                        type_cast = ""
+                    elif field in ["budget_min", "budget_max"]:
+                        value = float(value) if value else None
+                        type_cast = ""
+                    else:
+                        type_cast = ""
+
+                    if only_empty_fields:
+                        # Only update if current value is NULL or empty string
+                        set_clauses.append(
+                            f"{field} = CASE WHEN {field} IS NULL OR {field} = '' THEN ${param_num}{type_cast} ELSE {field} END"
+                        )
+                    else:
+                        set_clauses.append(f"{field} = ${param_num}{type_cast}")
+
+                    values.append(value)
+                    param_num += 1
+
+                if not set_clauses:
+                    return True
+
+                # Add contact_id as last param
+                values.append(contact_id)
+
+                query = f"""
+                    UPDATE contacts
+                    SET {', '.join(set_clauses)}, updated_at = NOW()
+                    WHERE id = ${param_num}
+                """
+
+                result = await conn.execute(query, *values)
+                return "UPDATE" in result
+
+        except Exception as e:
+            logger.error(f"Failed to update contact: {e}")
+            raise
+
+    @classmethod
+    async def download_file_from_storage(
+        cls,
+        file_url: str
+    ) -> Optional[bytes]:
+        """
+        Download a file from Supabase Storage
+
+        Note: This uses HTTP request, not database connection
+        """
+        import aiohttp
+        from app.config import settings
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                # Add authorization header for private buckets
+                headers = {
+                    "Authorization": f"Bearer {settings.supabase_service_key}",
+                    "apikey": settings.supabase_service_key
+                }
+
+                async with session.get(file_url, headers=headers) as response:
+                    if response.status == 200:
+                        return await response.read()
+                    else:
+                        logger.error(f"Failed to download file: {response.status}")
+                        return None
+
+        except Exception as e:
+            logger.error(f"Failed to download file from storage: {e}")
+            return None

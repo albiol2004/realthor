@@ -11,6 +11,8 @@ const PUBLIC_PATHS = [
   '/subscribe',
   '/verify-email',
   '/auth/callback',
+  '/privacy',
+  '/terms',
   '/',
 ]
 

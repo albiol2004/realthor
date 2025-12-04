@@ -218,7 +218,7 @@ export default async function HomePage() {
 
           {/* Footer */}
           <footer className="container mx-auto px-6 py-12 border-t border-white/10">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="flex items-center space-x-3">
                 <div className="relative w-8 h-8">
                   <Image
@@ -229,6 +229,14 @@ export default async function HomePage() {
                   />
                 </div>
                 <span className="text-xl font-bold">Realthor Solutions</span>
+              </div>
+              <div className="flex items-center gap-6 text-sm text-gray-400">
+                <Link href="/privacy" className="hover:text-white transition-colors">
+                  Privacy Policy
+                </Link>
+                <Link href="/terms" className="hover:text-white transition-colors">
+                  Terms of Service
+                </Link>
               </div>
               <p className="text-gray-500 text-sm">
                 © 2025 Realthor Solutions. The operating system for real estate professionals.

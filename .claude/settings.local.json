@@ -17,7 +17,8 @@
       "Bash(pnpm add:*)",
       "Bash(cat:*)",
       "Bash(npx supabase:*)",
-      "Bash(pnpm type-check:web:*)"
+      "Bash(pnpm type-check:web:*)",
+      "Bash(ssh root@69.62.122.245 \"cat /etc/nginx/sites-available/alejandrogarcia.blog\")"
     ]
   },
   "outputStyle": "default"

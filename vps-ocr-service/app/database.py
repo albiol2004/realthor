@@ -1074,7 +1074,9 @@ class Database:
             # Private: /storage/v1/object/bucket/path
             download_url = file_url.replace('/object/public/', '/object/')
 
-            logger.info(f"Downloading file from: {download_url}")
+            logger.info(f"Original URL: {file_url}")
+            logger.info(f"Download URL: {download_url}")
+            logger.info(f"Service key configured: {bool(settings.supabase_service_key)}")
 
             async with aiohttp.ClientSession() as session:
                 # Add authorization header for private buckets
@@ -1083,9 +1085,14 @@ class Database:
                     "apikey": settings.supabase_service_key or ""
                 }
 
+                logger.info(f"Making request with auth headers...")
+
                 async with session.get(download_url, headers=headers) as response:
+                    logger.info(f"Response status: {response.status}")
                     if response.status == 200:
-                        return await response.read()
+                        content = await response.read()
+                        logger.info(f"Downloaded {len(content)} bytes")
+                        return content
                     else:
                         response_text = await response.text()
                         logger.error(f"Failed to download file: {response.status} - {response_text}")

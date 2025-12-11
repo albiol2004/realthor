@@ -77,7 +77,7 @@ export function DocumentUploadDialog({ open, onOpenChange, contactId, propertyId
       formData.append("entityId", propertyId)
     }
 
-    const response = await fetch("/api/upload/document", {
+    const response = await fetch("/realthor/api/upload/document", {
       method: "POST",
       body: formData,
     })

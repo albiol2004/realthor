@@ -1063,23 +1063,32 @@ class Database:
         Download a file from Supabase Storage
 
         Note: This uses HTTP request, not database connection
+        Handles both public and private bucket URLs
         """
         import aiohttp
         from app.config import settings
 
         try:
+            # Convert public URL to authenticated URL for private buckets
+            # Public:  /storage/v1/object/public/bucket/path
+            # Private: /storage/v1/object/bucket/path
+            download_url = file_url.replace('/object/public/', '/object/')
+
+            logger.info(f"Downloading file from: {download_url}")
+
             async with aiohttp.ClientSession() as session:
                 # Add authorization header for private buckets
                 headers = {
                     "Authorization": f"Bearer {settings.supabase_service_key}",
-                    "apikey": settings.supabase_service_key
+                    "apikey": settings.supabase_service_key or ""
                 }
 
-                async with session.get(file_url, headers=headers) as response:
+                async with session.get(download_url, headers=headers) as response:
                     if response.status == 200:
                         return await response.read()
                     else:
-                        logger.error(f"Failed to download file: {response.status}")
+                        response_text = await response.text()
+                        logger.error(f"Failed to download file: {response.status} - {response_text}")
                         return None
 
         except Exception as e:

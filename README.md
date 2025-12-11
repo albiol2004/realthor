@@ -38,12 +38,7 @@ pnpm dev
 
 | Document | Description |
 |----------|-------------|
-| [QUICK_START.md](./QUICK_START.md) |  Essential commands for daily development |
-| [DEVELOPMENT_WORKFLOW.md](./DEVELOPMENT_WORKFLOW.md) | Complete development guide and Git workflow |
-| [SECURITY_AUDIT.md](./SECURITY_AUDIT.md) | Security audit and best practices |
-| [CLAUDE.md](./CLAUDE.md) | AI assistant guide and architecture |
 | [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) | Detailed project structure |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Deployment and CI/CD guide |
 | [CHANGELOG.md](./CHANGELOG.md) | Version history and changes |
 | [MVP_FEATURES.md](./MVP_FEATURES.md) | MVP feature scope |
 

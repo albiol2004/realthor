@@ -64,7 +64,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       links: [
         httpBatchLink({
           transformer: superjson,
-          url: `${getBaseUrl()}/api/trpc`,
+          url: `${getBaseUrl()}/realthor/api/trpc`,
           // You can pass any HTTP headers you wish here
           async headers() {
             return {}

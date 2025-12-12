@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Image from 'next/image'
-import { ArrowRight, Sparkles, Zap, Shield, TrendingUp } from 'lucide-react'
+import { ArrowRight, Sparkles, Zap, Shield, TrendingUp, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default async function HomePage() {
@@ -184,6 +184,39 @@ export default async function HomePage() {
                   <p className="text-gray-400 leading-relaxed">
                     All client conversations in one place. Email, WhatsApp, and SMS integrated with secure cloud storage for every interaction.
                   </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Demo Video Section */}
+          <section className="container mx-auto px-6 py-32">
+            <div className="max-w-5xl mx-auto">
+              <div className="text-center space-y-4 mb-12">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <Play className="w-4 h-4" />
+                  <span className="text-sm font-medium">See it in action</span>
+                </div>
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
+                  Watch the Demo
+                </h2>
+                <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                  See how Realthor streamlines your real estate workflow in just a few minutes
+                </p>
+              </div>
+
+              {/* Video Container */}
+              <div className="relative rounded-3xl overflow-hidden bg-white/5 border border-white/10 backdrop-blur-sm">
+                <div className="aspect-video">
+                  <video
+                    className="w-full h-full object-cover"
+                    controls
+                    preload="metadata"
+                    poster=""
+                  >
+                    <source src="https://alejandrogarcia.blog/videos/DemoRealthor.mp4" type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
                 </div>
               </div>
             </div>
